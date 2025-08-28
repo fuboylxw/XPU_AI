@@ -1,0 +1,46 @@
+# LangChain核心组件
+langchain==0.1.0
+langchain-community==0.0.10
+langchain-core==0.1.10
+langchain-openai==0.0.5
+
+# MCP协议支持
+mcp[cli]==1.0.0
+
+# DeepSeek API
+openai==1.12.0  # DeepSeek兼容OpenAI API格式
+httpx==0.25.2
+
+# 向量数据库和嵌入
+faiss-cpu>=1.7.0,<1.8.0
+chromadb>=0.4.0,<0.5.0
+sentence-transformers>=2.2.0,<2.3.0
+
+# 文档处理
+PyPDF2==3.0.1
+python-docx>=1.0.0,<2.0.0
+openpyxl>=3.1.0,<4.0.0
+unstructured>=0.11.0,<0.12.0
+
+# Web框架
+streamlit>=1.28.0,<1.30.0
+fastapi>=0.104.0,<0.105.0
+uvicorn>=0.24.0,<0.25.0
+
+# 数据处理
+numpy>=1.21.0,<1.25.0
+pandas>=2.0.0,<2.1.0
+
+# 配置和日志
+python-dotenv>=1.0.0
+loguru>=0.7.0
+pydantic>=2.5.0,<3.0.0
+pydantic-settings>=2.1.0,<3.0.0
+
+# HTTP请求
+requests>=2.31.0
+
+# 其他工具
+tqdm>=4.66.0
+click>=8.1.0
+jsonschema>=4.20.0
