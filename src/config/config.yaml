@@ -1,0 +1,138 @@
+# XPU AI Assistant 基础配置文件
+# 这是默认配置，可以通过环境特定的配置文件覆盖
+
+app_name: "XPU AI Assistant"
+version: "1.0.0"
+environment: "development"
+debug: false
+
+# API服务配置
+api:
+  host: "0.0.0.0"
+  port: 8000
+  debug: false
+  reload: false
+  workers: 1
+  
+  # CORS配置
+  cors_origins:
+    - "*"
+  cors_credentials: true
+  cors_methods:
+    - "*"
+  cors_headers:
+    - "*"
+  
+  # 请求限制
+  max_request_size: 16777216  # 16MB
+  request_timeout: 30
+
+# 数据库配置
+database:
+  type: "sqlite"
+  database: "data/xpu_ai.db"
+  pool_size: 10
+  max_overflow: 20
+  echo: false
+
+# Redis配置
+redis:
+  host: "202.200.206.248"
+  port: 6379
+  db: 0
+  max_connections: 10
+  decode_responses: true
+
+# 安全配置
+security:
+  secret_key: "your-secret-key-change-in-production-min-32-chars"
+  algorithm: "HS256"
+  access_token_expire_minutes: 30
+  refresh_token_expire_days: 7
+  
+  # API密钥配置
+  api_key_header: "X-API-Key"
+  api_keys: []
+  
+  # 限流配置
+  rate_limit_per_minute: 60
+  rate_limit_per_hour: 1000
+  burst_limit: 10
+  
+  # IP白名单/黑名单
+  whitelist_ips: []
+  blacklist_ips: []
+  
+  # CSRF保护
+  csrf_enabled: true
+  csrf_token_lifetime_hours: 1
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file_enabled: true
+  file_path: "logs/app.log"
+  file_max_size: "10MB"
+  file_backup_count: 5
+  console_enabled: true
+
+# AI服务配置
+ai:
+  # DeepSeek配置
+  deepseek_api_base: "https://api.deepseek.com/v1"
+  deepseek_model: "deepseek-chat"
+  deepseek_temperature: 0.7
+  deepseek_max_tokens: 2000
+  
+  # 嵌入模型配置
+  embedding_model: "all-MiniLM-L6-v2"
+  embedding_device: "cpu"
+  
+  # RAG配置
+  chunk_size: 1000
+  chunk_overlap: 200
+  top_k_results: 5
+  similarity_threshold: 0.3
+
+# 搜索引擎配置
+search:
+  enabled: true
+  timeout: 30
+  max_results: 5
+  
+  # 百度AI搜索
+  baidu_url: "https://qianfan.baidubce.com/v2/ai_search/chat/completions"
+  
+  # 搜索引擎优先级
+  engine_priority:
+    - "baidu"
+    - "google"
+    - "bing"
+  
+  # 缓存配置
+  cache_enabled: true
+  cache_ttl: 3600
+
+# 文件处理配置
+file:
+  upload_dir: "data/uploads"
+  max_file_size: 10485760  # 10MB
+  allowed_extensions:
+    - "pdf"
+    - "docx"
+    - "txt"
+    - "xlsx"
+    - "pptx"
+  
+  # 文档处理
+  documents_dir: "data/documents"
+  vector_db_dir: "data/vector_db"
+
+# MCP服务配置
+mcp:
+  enabled: true
+  server_name: "school-info-server"
+  server_version: "1.0.0"
+  server_port: 3000
+  tools_enabled: true
