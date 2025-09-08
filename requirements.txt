@@ -1,0 +1,70 @@
+# 核心Web框架
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+starlette>=0.27.0
+
+# AI和LLM相关
+openai>=1.12.0
+httpx>=0.25.2
+
+# 向量数据库和嵌入
+faiss-cpu>=1.7.4
+sentence-transformers>=2.2.2
+numpy>=1.24.0
+
+# 文档处理
+PyPDF2>=3.0.1
+python-docx>=1.1.0
+unstructured>=0.10.0
+pandas>=2.1.0
+
+# 配置和验证
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+PyYAML>=6.0.1
+
+# HTTP请求和网络搜索
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+aiohttp>=3.9.0
+
+# 日志和工具
+loguru>=0.7.2
+tqdm>=4.66.0
+jsonschema>=4.20.0
+
+# 时间处理
+pytz>=2023.3
+
+# 测试框架
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+
+# MCP协议支持
+mcp>=1.0.0
+
+# LangChain支持
+langchain>=0.1.0
+langchain-core>=0.1.0
+
+# Streamlit界面
+streamlit>=1.28.0
+
+# 视频生成相关
+moviepy>=1.0.3
+gtts>=2.4.0
+pydub>=0.25.1
+opencv-python>=4.8.0
+Pillow>=10.0.0
+matplotlib>=3.7.0
+numpy>=1.24.0
+scipy>=1.11.0
+ffmpeg-python>=0.2.0
+vosk>=0.3.45
+speech-recognition>=3.10.0
+text2speech>=1.0.0
+manim>=0.17.3
+
+# 其他工具
+# pathlib是Python标准库，无需额外安装
