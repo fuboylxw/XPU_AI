@@ -61,7 +61,7 @@ ENVIRONMENT=development
 DEBUG=false
 
 # API服务配置
-API__HOST=202.200.206.248
+API__HOST=localhost
 API__PORT=8000
 
 # DeepSeek API
@@ -188,5 +188,6 @@ python -m pytest
 [添加许可证信息]
 
 ## 联系方式
+
 
 [添加联系方式]
