@@ -1,120 +1,85 @@
-# ChatBI_XPU - 西安工程大学智能对话系统
+# ChatAgent_XPU - 西安工程大学智能问答系统
 
-ChatBI_XPU是一个基于大语言模型的智能对话系统，专为西安工程大学设计，能够回答关于学校的各类问题，进行数据分析，并提供智能对话服务。
+## 项目概述
 
-## 功能特点
+ChatAgent_XPU是一个基于大语言模型的智能问答系统，专为西安工程大学设计，能够回答关于学校概况、学院专业、招生信息、教务管理等方面的问题。系统通过爬取学校官方网站内容，构建知识库，并使用向量检索技术实现精准的问答功能。
 
-- **智能对话**：基于大语言模型的自然语言交互
-- **知识库管理**：自动爬取学校网站信息，构建结构化知识库
-- **数据分析**：支持自然语言查询数据，生成分析报告
-- **Web搜索**：支持在线搜索补充信息
-- **文档处理**：支持上传和处理各类文档（PDF、Word等）
-- **流式输出**：支持大模型回答的流式输出，提升用户体验
+## 主要功能
 
-## 项目结构
+- **智能问答**：回答关于西安工程大学的各类问题
+- **知识库管理**：自动爬取、分类和存储学校网站信息
+- **多模态理解**：支持图像识别和多模态输入
+- **安全审核**：内置内容过滤和敏感词检测功能
+- **数据查询**：支持权限控制的数据查询功能
+- **网站爬取**：自动爬取学校网站内容并分类存储
 
+## 技术架构
+
+- 基于LangChain框架构建的智能问答系统
+- 使用FAISS向量数据库进行高效相似度检索
+- 采用Sentence-Transformers进行文本向量化
+- 基于Streamlit和FastAPI构建Web界面和API服务
+- 支持OpenAI和其他大语言模型接口
+
+## 快速开始
+
+### 环境要求
+
+- Python 3.8+
+- 安装requirements.txt中的依赖包
+
+### 安装步骤
+
+1. 克隆项目到本地
 ```
-ChatBI_XPU/
-├── config/                 # 配置文件
-├── data/                   # 数据文件
-├── logs/                   # 日志文件
-├── models/                 # 模型文件
-├── src/                    # 源代码
-│   ├── chatbi/            # 核心模块
-│   │   ├── agents/        # 智能代理
-│   │   ├── Knowledge/     # 知识库管理
-│   │   ├── prompts/       # 提示词模板
-│   │   ├── tools/         # 工具函数
-│   │   └── utils/         # 实用工具
-│   └── main.py            # 主程序入口
-├── static/                 # 静态资源
-├── xpu_knowledge_base/    # 西安工程大学知识库
-├── .env                    # 环境变量
-├── .env.example           # 环境变量示例
-├── chat_api.py            # 对话API服务
-└── requirements.txt       # 项目依赖
-```
-
-## 安装与配置
-
-1. 克隆项目
-```bash
-git clone https://github.com/yourusername/ChatBI_XPU.git
-cd ChatBI_XPU
+git clone https://github.com/yourusername/ChatAgent_XPU.git
+cd ChatAgent_XPU
 ```
 
 2. 安装依赖
-```bash
+```
 pip install -r requirements.txt
 ```
 
 3. 配置环境变量
-```bash
-cp .env.example .env
-# 编辑.env文件，填入必要的API密钥和配置
+创建.env文件，添加以下内容：
+```
+OPENAI_API_KEY=your_api_key
+OPENAI_MODEL=your_model_name
+OPENAI_MODEL_BASE_URL=your_model_base_url
 ```
 
-## 使用方法
-
-### 启动Web界面
-
-```bash
+4. 运行Web界面
+```
 python src/main.py
 ```
-访问 http://localhost:8501 使用Streamlit界面
 
-### 启动API服务
-
-```bash
-python chat_api.py
+5. 运行API服务
 ```
-API文档: http://localhost:8003/docs
-
-### 构建知识库
-
-```bash
-python src/chatbi/agents/website_knowledge_agent.py https://www.xpu.edu.cn/ --output xpu_knowledge_base --max-pages 30 --delay 1.0
+uvicorn chat_api:app --host 0.0.0.0 --port 8000
 ```
 
-## 主要功能模块
+## 知识库构建
 
-### 1. 网站知识库构建
+系统支持从西安工程大学官方网站自动爬取内容并构建知识库：
 
-自动爬取西安工程大学网站信息，并按类别整理保存，包括：
-- 学校概况
-- 新闻动态
-- 教学科研
-- 招生就业
-- 校园生活
-- 通知公告
-- 其他信息
+```
+python crawl_xpu_simple.py
+```
 
-### 2. 智能对话系统
+爬取的内容将自动分类并存储在Knowledge目录下。
 
-基于大语言模型的对话系统，能够：
-- 回答关于学校的各类问题
-- 进行数据分析和可视化
-- 支持上下文理解和多轮对话
+## 目录结构
 
-### 3. 文档处理
-
-支持上传和处理各类文档：
-- PDF文档
-- Word文档
-- Excel表格
-- 文本文件
-
-## 技术栈
-
-- Python 3.9+
-- FastAPI
-- Streamlit
-- LangChain
-- OpenAI API
-- BeautifulSoup
-- SQLAlchemy
-- Sentence Transformers
-- FAISS向量数据库
+- `src/`: 源代码目录
+  - `chatbi/`: 核心模块
+    - `agents/`: 各类智能体实现
+    - `tools/`: 工具类实现
+    - `utils/`: 工具函数
+- `config/`: 配置文件
+- `Knowledge/`: 知识库文件
+- `models/`: 模型文件
+- `vector_db/`: 向量数据库文件
 
 ## 许可证
 
