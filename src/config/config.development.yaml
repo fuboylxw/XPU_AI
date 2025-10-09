@@ -1,0 +1,30 @@
+# 开发环境配置
+# 覆盖基础配置中的开发环境特定设置
+
+debug: true
+
+api:
+  debug: true
+  reload: true
+  host: "202.200.206.248"
+  port: 8000
+
+logging:
+  level: "DEBUG"
+  console_enabled: true
+  file_enabled: true
+
+security:
+  # 开发环境使用较宽松的安全设置
+  rate_limit_per_minute: 120
+  rate_limit_per_hour: 2000
+  csrf_enabled: false  # 开发时可以禁用CSRF以便测试
+
+database:
+  echo: true  # 开发环境显示SQL语句
+
+ai:
+  deepseek_temperature: 0.8  # 开发环境可以使用更高的创造性
+
+search:
+  timeout: 60  # 开发环境允许更长的搜索超时
