@@ -1,12 +1,12 @@
 <template>
   <div class="call-modal-overlay" @click="handleOverlayClick">
-    <div class="call-modal" :class="{ 'dark-mode': isDarkMode }">
+    <div class="call-modal" :class="{ 'dark-mode': isDarkMode }" role="dialog" aria-modal="true" aria-label="语音通话对话框" tabindex="-1">
       <!-- 智能体头像/Logo区域 -->
       <div class="avatar-section">
         <div class="avatar-container">
           <!-- 这里将放置智能体的SVG Logo -->
           <div class="avatar-placeholder">
-            <img src="./logo4.svg" alt="智能体Logo" />
+            <img src="../components/logo4.svg" alt="智能体Logo" />
           </div>
           <!-- 通话状态指示器 -->
           <div class="call-status-indicator" :class="callStatus">
@@ -29,14 +29,12 @@
         <p class="call-duration" v-if="callStatus !== 'connecting' && callDuration >= 0">{{ formatDuration(callDuration) }}</p>
       </div>
       
-      <!-- 语音交互提示 -->
+      <!-- 语音交互提示：改为三个动态小圆点 -->
       <div class="voice-hint" v-if="callStatus === 'listening'">
-        <div class="voice-wave">
-          <div class="wave-bar"></div>
-          <div class="wave-bar"></div>
-          <div class="wave-bar"></div>
-          <div class="wave-bar"></div>
-          <div class="wave-bar"></div>
+        <div class="dots-indicator" aria-label="正在聆听">
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
         </div>
       </div>
       
@@ -53,11 +51,14 @@
       <div class="controls-section">
         <!-- 静音按钮 -->
         <button 
+          ref="muteBtn"
           class="control-btn mute-btn" 
           @click="toggleMute" 
           :class="{ active: isMuted, disabled: callStatus === 'ending' }" 
           :disabled="callStatus === 'ending'"
           :title="callStatus === 'ending' ? '通话结束中...' : (isMuted ? '取消静音' : '静音')"
+          :aria-pressed="isMuted"
+          aria-label="静音切换"
         >
           <Icon 
             :type="isMuted ? 'mute-on-icon' : 'mute-off-icon'"
@@ -70,11 +71,13 @@
         
         <!-- 挂断按钮 -->
         <button 
+          ref="hangupBtn"
           class="hang-up-btn" 
           @click="handleHangUp" 
           :class="{ disabled: callStatus === 'ending' }"
           :disabled="callStatus === 'ending'"
           :title="callStatus === 'ending' ? '通话结束中...' : '结束通话'"
+          aria-label="结束通话"
         >
           <Icon 
             type="call-cancel"
@@ -87,11 +90,14 @@
         
         <!-- 扬声器按钮 -->
         <button 
+          ref="speakerBtn"
           class="control-btn speaker-btn" 
           @click="toggleSpeaker" 
           :class="{ active: isSpeakerOn, disabled: callStatus === 'ending' }" 
           :disabled="callStatus === 'ending'"
           :title="callStatus === 'ending' ? '通话结束中...' : (isSpeakerOn ? '关闭扬声器' : '开启扬声器')"
+          :aria-pressed="isSpeakerOn"
+          aria-label="扬声器切换"
         >
           <Icon 
             :type="isSpeakerOn ? 'speaker-on-icon' : 'speaker-off-icon'"
@@ -107,7 +113,7 @@
 </template>
 
 <script>
-import Icon from './Icon.vue'
+import Icon from '../components/Icon.vue'
 
 export default {
   name: 'CallModal',
@@ -191,6 +197,11 @@ export default {
           // 强制触发DOM更新，确保界面完全关闭
           this.$forceUpdate();
         });
+      } else {
+        // 当模态打开时，设置初始焦点并启用键盘聚焦控制
+        this.$nextTick(() => {
+          this.focusFirstControl();
+        });
       }
     }
   },
@@ -220,10 +231,48 @@ export default {
     },
     
     handleKeyDown(event) {
+      // 如果按下Tab键，在模态内部循环焦点
+      if (event.key === 'Tab') {
+        // 仅在模态可见时处理
+        if (!this.visible) return
+        event.preventDefault()
+        const focusOrder = [this.$refs.muteBtn, this.$refs.hangupBtn, this.$refs.speakerBtn].filter(Boolean)
+        if (focusOrder.length === 0) return
+        const active = document.activeElement
+        const idx = focusOrder.findIndex(el => el === active)
+        let nextIndex = 0
+        if (idx === -1) {
+          nextIndex = 0
+        } else if (event.shiftKey) {
+          nextIndex = (idx - 1 + focusOrder.length) % focusOrder.length
+        } else {
+          nextIndex = (idx + 1) % focusOrder.length
+        }
+        const nextEl = focusOrder[nextIndex]
+        if (nextEl && typeof nextEl.focus === 'function') {
+          nextEl.focus()
+        }
+        return
+      }
+
       // ESC键关闭模态框并挂断电话
       if (event.key === 'Escape') {
         this.handleHangUp()
       }
+    },
+
+    focusFirstControl() {
+      // 设置初始聚焦到挂断按钮（最显著的控制）
+      this.$nextTick(() => {
+        try {
+          const el = this.$refs.hangupBtn || this.$refs.muteBtn || this.$refs.speakerBtn
+          if (el && typeof el.focus === 'function') {
+            el.focus()
+          }
+        } catch (e) {
+          // ignore
+        }
+      })
     },
     
     handleHangUp() {
@@ -622,6 +671,23 @@ export default {
 .wave-bar:nth-child(4) { animation-delay: 0.3s; }
 .wave-bar:nth-child(5) { animation-delay: 0.4s; }
 
+/* 三个点指示器（用于监听状态） */
+.dots-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.dots-indicator .dot {
+  width: 8px;
+  height: 8px;
+  background: currentColor;
+  border-radius: 50%;
+  animation: speaking 1.4s ease-in-out infinite;
+}
+.dots-indicator .dot:nth-child(1) { animation-delay: 0s; }
+.dots-indicator .dot:nth-child(2) { animation-delay: 0.2s; }
+.dots-indicator .dot:nth-child(3) { animation-delay: 0.4s; }
+
 /* 响应式设计 */
 @media (max-width: 480px) {
   .call-modal {
@@ -656,9 +722,5 @@ export default {
   box-shadow: 0 8px 32px rgba(74, 144, 226, 0.4);
 }
 
-.call-modal.dark-mode .hang-up-btn {
-}
-
-.call-modal.dark-mode .hang-up-btn:hover {
-}
+/* 移除空规则，避免样式校验报错 */
 </style>

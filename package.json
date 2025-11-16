@@ -6,7 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint \"src/**/*.{js,vue}\"",
+    "lint:fix": "eslint \"src/**/*.{js,vue}\" --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
   },
   "dependencies": {
     "tdesign-vue-next": "^1.17.1",
@@ -14,7 +19,24 @@
     "vue-router": "^4.6.3"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.1",
     "@vitejs/plugin-vue": "^6.0.1",
-    "vite": "^7.1.7"
+    "eslint": "^9.39.1",
+    "eslint-plugin-vue": "^10.5.1",
+    "globals": "^16.5.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.6",
+    "prettier": "^3.6.2",
+    "vite": "^7.1.7",
+    "vite-plugin-vue-devtools": "^8.0.3",
+    "markdown-it": "^14.1.0",
+    "highlight.js": "^11.9.0",
+    "svgo": "^3.3.2"
+  },
+  "lint-staged": {
+    "*.{js,vue,css,md}": [
+      "prettier --write",
+      "eslint --fix"
+    ]
   }
 }

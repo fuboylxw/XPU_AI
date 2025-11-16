@@ -14,30 +14,43 @@
       </div>
       
       <div class="conversation-list" v-show="!sidebarCollapsed">
-        <div 
-          v-for="conv in conversations" 
-          :key="conv.id"
-          class="conversation-item"
-          :class="{ active: conv.id === currentConversation }"
-        >
-          <div class="conv-content" @click="selectConversation(conv.id)">
-            <div class="conv-title">{{ conv.title }}</div>
-            <div class="conv-time">{{ conv.time }}</div>
+        <!-- 加载骨架屏 -->
+        <template v-if="loading">
+          <div class="skeleton-item" v-for="i in 6" :key="'skl-'+i">
+            <div class="skeleton-avatar shimmer"></div>
+            <div class="skeleton-lines">
+              <div class="skeleton-line shimmer" style="width: 70%"></div>
+              <div class="skeleton-line shimmer" style="width: 40%"></div>
+            </div>
           </div>
-          <button 
-            class="delete-btn" 
-            @click.stop="deleteConversation(conv.id)"
-            title="删除对话"
+        </template>
+        <!-- 对话列表 -->
+        <template v-else>
+          <div 
+            v-for="conv in conversations" 
+            :key="conv.id"
+            class="conversation-item"
+            :class="{ active: conv.id === currentConversation }"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 6h18"/>
-              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
-              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-              <line x1="10" x2="10" y1="11" y2="17"/>
-              <line x1="14" x2="14" y1="11" y2="17"/>
-            </svg>
-          </button>
-        </div>
+            <div class="conv-content" @click="selectConversation(conv.id)">
+              <div class="conv-title">{{ conv.title }}</div>
+              <div class="conv-time">{{ conv.time }}</div>
+            </div>
+            <button 
+              class="delete-btn" 
+              @click.stop="deleteConversation(conv.id)"
+              title="删除对话"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18"/>
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                <line x1="10" x2="10" y1="11" y2="17"/>
+                <line x1="14" x2="14" y1="11" y2="17"/>
+              </svg>
+            </button>
+          </div>
+        </template>
       </div>
     </div>
 
@@ -57,32 +70,82 @@
       <div class="header">
         <div class="chat-title">
           <span class="title-icon">
-            <img v-if="!isDark" height="50" src="./tuan7.svg" alt="logo" />
-            <img v-else height="50" src="./tuan8.svg" alt="logo" />
+            <div :class="['logo', isDark ? 'logo-dark' : 'logo-light']">
+              <img v-if="!isDark" height="50" src="../components/tuan7.svg" alt="logo" />
+              <img v-else height="50" src="../components/tuan8.svg" alt="logo" />
+            </div>
           </span>
         </div>
         <div class="header-right">
+          <!-- 学校首页导航按钮 -->
+          <button 
+            class="header-btn" 
+            @click="goToSchoolHomepage"
+            title="学校首页"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="transparent" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+              <path d="M2 12h20"/>
+            </svg>
+          </button>
+
+          <!-- 西工程大APP下载按钮 -->
+          <button 
+            class="header-btn" 
+            @click="showAppDownload"
+            title="西工程大APP下载"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="transparent" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7,10 12,15 17,10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+          </button>
+
           <span class="theme-label">{{ isDark ? '深色' : '浅色' }}</span>
           <button type="button" class="TDesign-switch size-small" @click="toggleTheme">
             <span class="TDesign-switch__handle"></span>
           </button>
-          <img 
-            src="/user-avatar.svg" 
-            alt="用户头像" 
-            class="user-avatar"
-            @click="goToLogin"
-            @error="handleAvatarError"
-          />
+          
+          <!-- 用户信息下拉菜单 - 使用TDesign组件 -->
+          <t-dropdown 
+            :options="userMenuOptions" 
+            @click="handleUserMenuClick"
+            placement="bottom-right"
+            :popup-props="{ overlayClassName: 'user-dropdown-popup' }"
+          >
+            <div class="user-menu-trigger">
+              <Icon 
+                type="user-circle-icon" 
+                :size="32" 
+                :fill-color='"transparent"' 
+                :stroke-color="isDark ? '#cccccc' : '#333'" 
+                :stroke-width="2"
+                class="user-avatar"
+              />
+              <span class="username">{{ getUserDisplayName() }}</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="dropdown-icon">
+                <polyline points="6,9 12,15 18,9"></polyline>
+              </svg>
+            </div>
+          </t-dropdown>
         </div>
       </div>
 
       <!-- 聊天消息区域 -->
-      <div class="chat-area" ref="chatArea" :class="{ 'drag-over': isDragOver }">
+      <div class="chat-area" ref="chatArea" :class="{ 'drag-over': isDragOver }" role="log" aria-live="polite">
+        <!-- 聊天区加载骨架屏 -->
+        <div v-if="loading" class="skeleton-chat">
+          <div class="skeleton-bubble shimmer" style="width: 60%"></div>
+          <div class="skeleton-bubble shimmer" style="width: 40%; align-self: flex-end"></div>
+          <div class="skeleton-bubble shimmer" style="width: 75%"></div>
+        </div>
         <!-- 拖拽上传提示层 -->
         <div v-if="isDragOver" class="drag-overlay">
           <div class="drag-content">
             <div class="drag-icon">
-              <img src="./doc1.svg" alt="上传文档" width="64" height="64" />
+              <img src="../components/doc1.svg" alt="上传文档" width="64" height="64" />
             </div>
             <h3>拖拽文件到此处上传</h3>
             <p>支持 TXT、PDF、DOC、DOCX、JPG、PNG、GIF、MP3、MP4、WAV 格式</p>
@@ -90,7 +153,7 @@
           </div>
         </div>
         <!-- 空状态 -->
-        <div v-if="messages && messages.length === 0" class="empty-state">
+        <div v-if="!loading && messages && messages.length === 0" class="empty-state">
           <div class="welcome-message">
             <h2>织语，知你所需。</h2>
           </div>
@@ -154,7 +217,7 @@
             </div>
             <div class="assistant-message-container">
               <div class="assistant-message-content">
-                <div v-html="formatMarkdown(message.content)"></div>
+                <div v-html="renderMarkdown(message.content)"></div>
               </div>
               <!-- 消息操作按钮 - 位于气泡外部左下方 -->
               <div class="message-actions-external">
@@ -185,6 +248,8 @@
       <!-- 输入区域 -->
       <div class="input-area" :class="{ 'drag-over': isDragOver }">
         <div class="input-container">
+          <!-- 隐藏文件输入，支持点击上传 -->
+          <input ref="fileInput" type="file" style="display: none;" @change="handleFilesSelected" multiple accept=".txt,.pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.mp3,.mp4,.wav" aria-hidden="true" />
           <!-- 文件预览区域 -->
           <div v-if="uploadedFiles.length > 0" class="file-preview-area">
             <div v-for="(file, index) in uploadedFiles" :key="index" class="file-preview-item">
@@ -200,16 +265,19 @@
               v-model="inputMessage"
               class="message-input"
               placeholder="输入您的问题，让织语为您解答"
-              @keydown.enter.prevent="handleEnterKey"
+              @keydown="handleKeyDown"
               @input="adjustTextareaHeight"
               ref="messageInput"
+              aria-label="消息输入框"
             ></textarea>
+            <div class="shortcut-hint" aria-hidden="true"></div>
             
             <div class="input-actions">
               <button 
                 class="attachment-btn" 
-                @click="handleFileUpload"
+                @click="openFileDialog"
                 title="上传文件"
+                aria-label="上传文件"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.64 16.2a2 2 0 0 1-2.83-2.83l8.49-8.49"/>
@@ -221,7 +289,8 @@
                 :class="{ recording: isRecording }"
                 @click="handleVoiceInput"
                 :title="isRecording ? '点击停止录音' : '语音输入'"
-                :disabled="loading || isStreaming"
+                :disabled="false"
+                aria-label="语音输入"
               >
                 <svg v-if="!isRecording" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
@@ -240,6 +309,7 @@
                 :class="{ active: isPhoneCallActive }"
                 @click="handleCallInput"
                 :title="isPhoneCallActive ? '结束电话通话' : '开始电话通话'"
+                aria-label="电话通话"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
@@ -252,6 +322,7 @@
                 @click="isStreaming ? stopStreaming() : sendMessage()"
                 :disabled="!inputMessage.trim() && !isStreaming"
                 :title="isStreaming ? '停止回答' : '发送消息'"
+                aria-label="发送消息"
               >
                 <Icon 
                   v-if="isStreaming"
@@ -282,57 +353,6 @@
       </div>
     </div>
 
-    <!-- 浮动工具栏 -->
-    <div class="floating-toolbar">
-      <!-- 展开/收起按钮 -->
-      <button 
-        class="toolbar-toggle" 
-        @click="toggleToolbar"
-        :class="{ expanded: toolbarExpanded }"
-        title="工具栏"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-          <circle cx="9" cy="10" r="1"/>
-          <circle cx="15" cy="10" r="1"/>
-          <path d="M9 14s1 1 3 1 3-1 3-1"/>
-        </svg>
-      </button>
-
-      <!-- 工具按钮组 -->
-      <div class="toolbar-buttons" v-show="toolbarExpanded">
-        <!-- 学校首页导航按钮 -->
-        <button 
-          class="toolbar-btn" 
-          @click="goToSchoolHomepage"
-          title="学校首页"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="transparent" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
-            <path d="M2 12h20"/>
-          </svg>
-        </button>
-
-        <!-- 西工程大APP下载按钮 -->
-        <button 
-          class="toolbar-btn" 
-          @click="showAppDownload"
-          title="西工程大APP下载"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="transparent" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="7,10 12,15 17,10"/>
-            <line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-        </button>
-
-
-
-
-      </div>
-    </div>
-
     <!-- APP下载模态框 -->
     <div v-if="showAppModal" class="modal-overlay" @click="closeAppModal">
       <div class="modal-content" @click.stop>
@@ -343,11 +363,11 @@
         <div class="modal-body">
           <div class="app-clients">
             <div class="client-item">
-              <img src="/src/components/ios.png" alt="iOS客户端二维码" class="app-qr-image" />
+              <img src="../components/ios.png" alt="iOS客户端二维码" class="app-qr-image" />
               <p>iOS客户端</p>
             </div>
             <div class="client-item">
-              <img src="./android.png" alt="安卓客户端二维码" class="app-qr-image" />
+              <img src="../components/android.png" alt="安卓客户端二维码" class="app-qr-image" />
               <p>安卓客户端</p>
             </div>
           </div>
@@ -392,15 +412,16 @@
 </template>
 
 <script>
-import Icon from './Icon.vue'
+import { h } from 'vue'
+import Icon from '../components/Icon.vue'
 import CallModal from './CallModal.vue'
+// 使用相对路径避免 alias 解析异常
+import { renderMarkdown as mdRender } from '../utils/markdown.js'
+import { authStore } from '../store/auth.js'
 
 export default {
   name: 'ChatApp',
-  components: {
-    Icon,
-    CallModal
-  },
+  components: { Icon, CallModal },
   data() {
     return {
       inputMessage: '',
@@ -409,7 +430,6 @@ export default {
       currentConversation: null,
       isDark: false,
       isRecording: false,
-      toolbarExpanded: false,
       hoveredMessageId: null,
       sidebarCollapsed: false,
       loading: false,
@@ -417,8 +437,6 @@ export default {
       currentStreamController: null,
       apiBaseUrl: 'http://localhost:8000/api',
       showAppModal: false,
-      // 用户管理
-      userId: null,
       // 语音识别相关
       mediaRecorder: null,
       audioChunks: [],
@@ -440,20 +458,43 @@ export default {
       phoneCallRoundCount: 0,
       phoneCallTimeoutId: null,
       phoneCallAudioContext: null,
-      
       // 电话模态框相关
       showCallModal: false,
-      callStatus: 'connecting', // connecting, connected, speaking, listening
+      callStatus: 'connecting',
       callDuration: 0,
       callStartTime: null,
       callTimer: null,
       isMuted: false,
       isSpeakerOn: false,
+      // TDesign下拉菜单选项
+      userMenuOptions: [
+        {
+          content: '退出登录',
+          value: 'logout',
+          prefixIcon: () => h('svg', {
+            width: 16,
+            height: 16,
+            viewBox: '0 0 24 24',
+            fill: 'transparent',
+            stroke: 'currentColor',
+            'stroke-width': 2,
+            'stroke-linecap': 'round',
+            'stroke-linejoin': 'round'
+          }, [
+            h('path', { d: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4' }),
+            h('polyline', { points: '16,17 21,12 16,7' }),
+            h('line', { x1: '21', y1: '12', x2: '9', y2: '12' })
+          ])
+        }
+      ]
+    }
+  },
+  computed: {
+    userInfo() {
+      return authStore.user
     }
   },
   mounted() {
-    // 初始化用户ID
-    this.initUserId();
     // 初始化主题
     this.initTheme();
     // 调整输入框高度
@@ -468,24 +509,88 @@ export default {
     this.removeDragListeners();
   },
   methods: {
-    // 初始化用户ID
-    initUserId() {
-      // 从localStorage获取用户ID，如果不存在则生成新的
-      let userId = localStorage.getItem('chatbot_user_id');
-      if (!userId) {
-        // 生成唯一的用户ID
-        userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        localStorage.setItem('chatbot_user_id', userId);
+    // 打开文件选择对话框（用于附件按钮）
+    openFileDialog() {
+      const input = this.$refs.fileInput
+      if (input) input.click()
+    },
+
+    // 处理文件选择
+    handleFilesSelected(event) {
+      const files = Array.from(event.target.files || [])
+      if (files.length) {
+        this.uploadedFiles = this.uploadedFiles.concat(files)
       }
-      this.userId = userId;
+      // 清空 input，便于重复选择同一文件
+      event.target.value = ''
     },
 
-    // 头像加载错误处理
-    handleAvatarError(event) {
-      console.warn('头像加载失败，使用默认头像');
-      event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIxNiIgY3k9IjE2IiByPSIxNiIgZmlsbD0iIzRGNDZFNSIvPgogIDxjaXJjbGUgY3g9IjE2IiBjeT0iMTIiIHI9IjUiIGZpbGw9IndoaXRlIi8+CiAgPHBhdGggZD0iTTYgMjZjMC01LjUgNC41LTEwIDEwLTEwczEwIDQuNSAxMCAxMCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+';
-    },
+    // 统一按键处理：Ctrl/Cmd+Enter 发送、Shift+Enter 换行、Esc 停止
+    handleKeyDown(event) {
+      const el = this.$refs.messageInput
+      if (!el) return
 
+      if (event.key === 'Enter') {
+        if (event.shiftKey) {
+          // 插入换行
+          const start = el.selectionStart
+          const end = el.selectionEnd
+          const value = this.inputMessage || ''
+          this.inputMessage = value.substring(0, start) + '\n' + value.substring(end)
+          this.$nextTick(() => {
+            el.selectionStart = el.selectionEnd = start + 1
+          })
+        } else if (event.ctrlKey || event.metaKey) {
+          // Ctrl/Cmd + Enter 发送
+          event.preventDefault()
+          if (!this.isStreaming) {
+            this.sendMessage()
+          } else {
+            this.stopStreaming()
+          }
+        }
+      } else if (event.key === 'Escape') {
+        // Esc 停止流式生成
+        if (this.isStreaming) {
+          this.stopStreaming()
+        }
+      }
+    },
+    // 获取用户显示名称
+    getUserDisplayName() {
+      if (!this.userInfo) {
+        return '用户';
+      }
+      
+      // 优先显示昵称，然后是用户名，最后是默认值
+      const displayName = this.userInfo.nickname || this.userInfo.username || '用户';
+      
+      // 确保返回的是字符串，避免显示为问号
+      return String(displayName).trim() || '用户';
+    },
+    
+    // 用户登出
+    logout() {
+      console.log('开始执行logout...');
+      try {
+        authStore.logout();
+        console.log('authStore.logout() 执行完成');
+        console.log('准备跳转到登录页...');
+        this.$router.push('/login');
+        console.log('路由跳转命令已执行');
+      } catch (error) {
+        console.error('logout过程中出现错误:', error);
+      }
+    },
+    
+    // 处理TDesign下拉菜单点击事件
+    handleUserMenuClick(data) {
+      console.log('TDesign下拉菜单点击:', data);
+      if (data.value === 'logout') {
+        this.logout();
+      }
+    },
+    
     // 切换侧边栏收起/展开状态
      toggleSidebar() {
        this.sidebarCollapsed = !this.sidebarCollapsed;
@@ -587,47 +692,6 @@ export default {
        }
      },
 
-     // 获取或创建用户的唯一对话（替代创建新对话）
-       async createNewChat() {
-         try {
-           const response = await fetch(`${this.apiBaseUrl}/conversations/get_or_create/`, {
-           method: 'POST',
-           headers: {
-             'Content-Type': 'application/json',
-           },
-           body: JSON.stringify({
-             title: `我的对话`,
-             user_id: this.userId
-           })
-         });
-         
-         if (response.ok) {
-           const conversation = await response.json();
-           
-           // 检查是否已经存在该会话
-           const existingConv = this.conversations.find(c => c.id === conversation.conversation_id);
-           if (!existingConv) {
-             const newConv = {
-               id: conversation.conversation_id,
-               title: conversation.title,
-               time: '刚刚',
-               created: conversation.created,
-               status: conversation.status
-             };
-             
-             this.conversations.unshift(newConv);
-           }
-           
-           this.currentConversation = conversation.conversation_id;
-           await this.loadConversationHistory(conversation.conversation_id);
-         } else {
-           console.error('获取或创建对话失败:', response.status);
-         }
-       } catch (error) {
-         console.error('获取或创建对话出错:', error);
-       }
-     },
-
      // 选择对话（更新为加载历史记录）
      async selectConversation(id) {
        this.currentConversation = id;
@@ -685,7 +749,7 @@ export default {
            body: JSON.stringify({
              conversation_id: this.currentConversation,
              message: messageContent,
-             user_id: this.userId
+             user_id: 'test_user'
            })
          });
          
@@ -809,16 +873,8 @@ export default {
       });
     },
 
-    formatMarkdown(text) {
-      // 添加空值检查，防止TypeError
-      if (!text || typeof text !== 'string') {
-        return '';
-      }
-      return text
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/`(.*?)`/g, '<code>$1</code>')
-        .replace(/\n/g, '<br>');
+    renderMarkdown(text) {
+      return mdRender(text)
     },
 
     // 获取文件类型图标
@@ -892,28 +948,20 @@ export default {
     },
     
     createNewChat() {
-      // 不再创建新对话，而是获取用户的唯一对话
-      console.log('用户只能有一个对话，请使用现有对话');
-      
-      // 如果有现有对话，选择第一个
-      if (this.conversations.length > 0) {
-        this.selectConversation(this.conversations[0].id);
-      } else {
-        // 如果没有对话，调用异步方法获取或创建
-        this.createNewChatAsync();
-      }
+      // 调用异步方法创建新对话
+      this.createNewChatAsync();
     },
     
     async createNewChatAsync() {
       try {
-        const response = await fetch(`${this.apiBaseUrl}/conversations/get_or_create/`, {
+        const response = await fetch(`${this.apiBaseUrl}/conversations/create/`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            title: `我的对话`,
-            user_id: this.userId
+            title: `新对话 ${new Date().toLocaleString()}`,
+            user_id: 'test_user'
           })
         });
         
@@ -931,11 +979,13 @@ export default {
           this.conversations.unshift(newConv);
           this.currentConversation = newConv.id;
           this.messages = [];
+          
+          console.log('新对话创建成功:', newConv);
         } else {
-          console.error('获取或创建对话失败:', response.status);
+          console.error('创建新对话失败:', response.status);
         }
       } catch (error) {
-        console.error('获取或创建对话出错:', error);
+        console.error('创建新对话出错:', error);
       }
     },
     
@@ -1314,9 +1364,6 @@ export default {
         console.log('开始处理电话通话音频...');
         this.showVoiceSuccessMessage('正在处理电话通话...');
         
-        // 更新通话状态为AI正在回复
-        this.callStatus = 'speaking';
-        
         // 创建FormData
         const formData = new FormData();
         formData.append('audio_file', audioBlob, 'phone_call.webm');
@@ -1380,15 +1427,8 @@ export default {
             
             this.showVoiceSuccessMessage(`AI回复: ${responseText}`);
             
-            // 只有在电话仍然活跃时才更新通话状态为等待用户说话
-            this.callStatus = 'listening';
-            
-            // 自动开始下一轮录音
-            this.phoneCallTimeoutId = setTimeout(() => {
-              if (this.isPhoneCallActive && !this.isRecording) {
-                this.startPhoneCallRecording();
-              }
-            }, 500); // 等待500ms后开始下一轮录音
+            // 音频播放完成，持续监听机制会自动继续录音
+            console.log('AI回复播放完成，等待持续监听机制继续录音');
           };
           
           source.start();
@@ -1433,17 +1473,8 @@ export default {
         
         this.showVoiceErrorMessage('电话通话失败: ' + error.message);
         
-        // 更新通话状态为等待用户说话
-        this.callStatus = 'listening';
-        
-        // 如果还在电话通话模式，尝试重新开始录音
-        if (this.isPhoneCallActive) {
-          this.phoneCallTimeoutId = setTimeout(() => {
-            if (this.isPhoneCallActive && !this.isRecording) {
-              this.startPhoneCallRecording();
-            }
-          }, 2000); // 等待2秒后重试
-        }
+        // 错误处理完成，持续监听机制会自动处理重试
+        console.log('电话通话处理出错，持续监听机制会自动重试');
       }
     },
 
@@ -1451,61 +1482,20 @@ export default {
     async handleCallInput() {
       console.log('点击电话按钮...');
       
-      // 如果已经在电话通话中，停止当前通话并关闭模态框
+      // 如果已经在电话通话中，挂断电话
       if (this.isPhoneCallActive) {
         await this.hangUpCall();
         return;
       }
       
       // 开始电话通话
-      await this.startPhoneCall();
-    },
-
-    // 开始电话通话
-    async startPhoneCall() {
-      try {
-        console.log('开始电话通话...');
-        
-        // 检查浏览器是否支持录音
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          this.showVoiceErrorMessage('您的浏览器不支持录音功能');
-          return;
-        }
-        
-        // 显示电话模态框
-        this.showCallModal = true;
-        this.callStatus = 'connecting';
-        
-        // 开始电话通话模式
-        this.isPhoneCallActive = true;
-        this.phoneCallRoundCount = 0;
-        this.phoneCallSessionId = 'phone_session_' + Date.now();
-        this.callStartTime = Date.now();
-        
-        // 启动通话时长计时器
-        this.startCallTimer();
-        
-        this.showVoiceSuccessMessage('电话通话已开始');
-        
-        // 延迟一下再开始第一轮录音，让用户看到连接状态
-        setTimeout(async () => {
-          if (this.isPhoneCallActive) {
-            this.callStatus = 'listening';
-            await this.startPhoneCallRecording();
-          }
-        }, 1000);
-        
-      } catch (error) {
-        console.error('电话通话启动失败:', error);
-        this.showVoiceErrorMessage('无法启动电话通话: ' + error.message);
-        this.isPhoneCallActive = false;
-        this.showCallModal = false;
-      }
+      await this.startPhoneCallMode();
     },
 
     // 关闭电话模态框
     async closeCallModal() {
       await this.hangUpCall();
+      // hangUpCall方法内部已经处理了showCallModal的关闭，这里不需要重复设置
     },
 
     // 挂断电话（从模态框中调用）
@@ -1518,70 +1508,32 @@ export default {
       // 立即停止电话通话状态，防止异步操作继续执行
       this.isPhoneCallActive = false;
       
-      // 立即中断AI回复和音频播放
-      if (this.phoneCallAudioContext) {
-        try {
-          // 停止所有音频播放
-          this.phoneCallAudioContext.close();
-          this.phoneCallAudioContext = null;
-          console.log('已中断AI音频回复');
-        } catch (error) {
-          console.warn('中断音频播放时出错:', error);
-        }
-      }
-      
-      // 清除可能存在的定时器
-      if (this.phoneCallTimeoutId) {
-        clearTimeout(this.phoneCallTimeoutId);
-        this.phoneCallTimeoutId = null;
-      }
-      
-      // 停止电话通话
-      await this.stopPhoneCall();
-      
-      // 确保在下一个事件循环中关闭模态框，给异步操作时间完成
-      await this.$nextTick();
-      
-      // 立即关闭电话模态框
-      this.showCallModal = false;
-      
-      // 显示通话结束提示
-      this.showVoiceSuccessMessage(`通话已结束，共进行了${this.phoneCallRoundCount}轮对话`);
-      
-      // 重置通话相关状态
-      this.callDuration = 0;
-      this.callStartTime = null;
-      
-      // 调用后端结束电话会话接口（异步执行，不阻塞界面关闭）
-      fetch('/api/phone-call/end', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          conversation_id: this.currentConversationId || 'default'
-        })
-      }).then(response => {
-        if (response.ok) {
-          console.log('电话会话已结束');
-        } else {
-          console.warn('结束电话会话失败:', response.statusText);
-        }
-      }).catch(error => {
-        console.error('结束电话会话请求失败:', error);
-      });
-      
-      // 确保聊天界面获得焦点
-      this.$nextTick(() => {
-        // 滚动到聊天区域底部
-        this.scrollToBottom();
+      try {
+        // 停止电话通话
+        await this.stopPhoneCall();
         
-        // 如果有输入框，让其获得焦点
-        const inputElement = this.$refs.messageInput;
-        if (inputElement) {
-          inputElement.focus();
-        }
-      });
+        // 确保在下一个事件循环中关闭模态框，给异步操作时间完成
+        await this.$nextTick();
+        
+        // 立即关闭电话模态框
+        this.showCallModal = false;
+        
+        // 显示通话结束提示
+        this.showVoiceSuccessMessage(`通话已结束，共进行了${this.phoneCallRoundCount}轮对话`);
+        
+        // 重置通话相关状态
+        this.callDuration = 0;
+        this.callStartTime = null;
+        this.phoneCallRoundCount = 0;
+        
+        console.log('电话界面已关闭');
+        
+      } catch (error) {
+        console.error('挂断电话时出错:', error);
+        // 即使出错也要关闭界面
+        this.showCallModal = false;
+        this.showVoiceErrorMessage('挂断电话时出现错误');
+      }
     },
     
     // 处理静音切换
@@ -1664,11 +1616,23 @@ export default {
           return;
         }
         
+        // 显示电话模态框
+        this.showCallModal = true;
+        this.callStatus = 'connecting';
+        
         // 开始电话通话模式
         this.isPhoneCallActive = true;
         this.phoneCallRoundCount = 0;
         this.phoneCallSessionId = 'phone_session_' + Date.now();
+        this.callStartTime = Date.now();
+        
+        // 启动通话计时器
+        this.startCallTimer();
+        
         this.showVoiceSuccessMessage('电话通话已开始，点击电话按钮可结束通话');
+        
+        // 设置通话状态为监听
+        this.callStatus = 'listening';
         
         // 开始第一轮录音
         await this.startPhoneCallRecording();
@@ -1683,30 +1647,57 @@ export default {
     // 开始电话通话录音
     async startPhoneCallRecording() {
       try {
-        // 首先检查电话通话是否仍然活跃
+        // 防止重复录音
+        if (this.isRecording) {
+          console.log('已在录音中，跳过重复启动');
+          return;
+        }
+        
+        // 检查电话通话状态
         if (!this.isPhoneCallActive) {
-          console.log('电话通话已结束，不开始录音');
+          console.log('电话通话已结束，取消录音启动');
           return;
         }
         
         this.isRecording = true;
         this.phoneCallRoundCount++;
-        
-        // 设置状态为等待用户说话
-        this.callStatus = 'listening';
-        
         this.showVoiceSuccessMessage(`第${this.phoneCallRoundCount}轮对话 - 开始录音...`);
+        
+        // 清理之前的音频流（如果存在）
+        if (this.phoneCallStream) {
+          this.phoneCallStream.getTracks().forEach(track => track.stop());
+          this.phoneCallStream = null;
+        }
         
         const stream = await navigator.mediaDevices.getUserMedia({ 
           audio: {
             sampleRate: 16000,
             channelCount: 1,
             echoCancellation: true,
-            noiseSuppression: true
+            noiseSuppression: true,
+            autoGainControl: true
           } 
         });
         
         this.phoneCallStream = stream;
+        
+        // 创建音频分析器用于持续监听音频级别
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const analyser = audioContext.createAnalyser();
+        const source = audioContext.createMediaStreamSource(stream);
+        source.connect(analyser);
+        
+        analyser.fftSize = 256;
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        
+        // 持续音频监听变量
+        let silenceCount = 0;
+        let hasSound = false;
+        let lastSoundTime = Date.now();
+        let isProcessingAudio = false;
+        
+        // 创建MediaRecorder用于录音
         this.mediaRecorder = new MediaRecorder(stream, {
           mimeType: 'audio/webm;codecs=opus'
         });
@@ -1716,49 +1707,134 @@ export default {
         this.mediaRecorder.ondataavailable = (event) => {
           if (event.data.size > 0) {
             this.audioChunks.push(event.data);
+            console.log(`音频数据块: ${event.data.size} bytes`);
           }
         };
         
         this.mediaRecorder.onstop = async () => {
+          console.log('MediaRecorder停止，开始处理音频');
+          isProcessingAudio = true;
+          
           try {
+            if (this.audioChunks.length === 0) {
+              console.log('没有录制到音频数据，继续监听');
+              isProcessingAudio = false;
+              return;
+            }
+            
             const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+            console.log(`录制完成，音频大小: ${(audioBlob.size / 1024).toFixed(2)} KB`);
+            
+            // 处理音频并等待回复完成
             await this.processPhoneCallAudio(audioBlob);
+            
           } catch (error) {
             console.error('处理电话音频失败:', error);
             this.showVoiceErrorMessage('电话通话处理失败: ' + error.message);
+          } finally {
+            isProcessingAudio = false;
+            this.isRecording = false;
+            
+            // 清理当前录音的音频数据
+            this.audioChunks = [];
+            
+            // 如果还在通话中，立即重新开始录音
             if (this.isPhoneCallActive) {
-              // 如果还在通话中，尝试重新开始录音
               setTimeout(() => {
-                if (this.isPhoneCallActive) {
+                if (this.isPhoneCallActive && !this.isRecording) {
                   this.startPhoneCallRecording();
                 }
-              }, 1000);
+              }, 100); // 很短的延迟后重新开始录音
             }
-          } finally {
-            this.isRecording = false;
           }
         };
         
-        this.mediaRecorder.start();
+        this.mediaRecorder.onerror = (event) => {
+          console.error('MediaRecorder错误:', event.error);
+          this.showVoiceErrorMessage('录音设备错误: ' + event.error.message);
+          this.isRecording = false;
+          isProcessingAudio = false;
+        };
         
-        // 3秒后自动停止录音
-        setTimeout(() => {
-          if (this.isRecording && this.mediaRecorder && this.mediaRecorder.state === 'recording') {
-            this.mediaRecorder.stop();
+        // 持续音频级别监控和自动处理
+        const checkAudioLevel = () => {
+          if (!this.isPhoneCallActive) {
+            audioContext.close();
+            return;
           }
-        }, 3000);
+          
+          // 如果正在处理音频，暂停监听
+          if (isProcessingAudio) {
+            setTimeout(checkAudioLevel, 50);
+            return;
+          }
+          
+          analyser.getByteFrequencyData(dataArray);
+          const average = dataArray.reduce((a, b) => a + b) / bufferLength;
+          const currentTime = Date.now();
+          
+          // 检测是否有声音输入（阈值可调整）
+          if (average > 15) { // 提高阈值以减少误触发
+            if (!hasSound) {
+              console.log('开始检测到声音，启动录音');
+              hasSound = true;
+              // 如果还没开始录音，现在开始
+              if (this.mediaRecorder.state === 'inactive') {
+                this.mediaRecorder.start();
+              }
+            }
+            lastSoundTime = currentTime;
+            silenceCount = 0;
+            console.log(`音频级别: ${average.toFixed(2)}`);
+          } else {
+            silenceCount++;
+          }
+          
+          // 如果检测到声音后静音超过1秒（20 * 50ms），自动处理音频
+          if (hasSound && (currentTime - lastSoundTime) > 1000) {
+            console.log('检测到1秒静音，自动处理音频');
+            
+            if (this.mediaRecorder.state === 'recording') {
+              this.mediaRecorder.stop();
+            }
+            
+            // 重置状态准备下一轮
+            hasSound = false;
+            silenceCount = 0;
+            lastSoundTime = currentTime;
+            
+            return; // 停止当前监听循环，等待录音处理完成后重新开始
+          }
+          
+          // 继续监听
+          setTimeout(checkAudioLevel, 50); // 每50ms检查一次
+        };
+        
+        // 开始音频级别监控
+        console.log('开始持续音频监听');
+        checkAudioLevel();
+        
+        // 不立即开始录音，等待检测到声音时再开始
+        console.log('等待检测到声音输入...');
         
       } catch (error) {
         console.error('电话录音启动失败:', error);
         this.showVoiceErrorMessage('无法启动录音: ' + error.message);
         this.isRecording = false;
+        
+        // 清理资源
+        if (this.phoneCallStream) {
+          this.phoneCallStream.getTracks().forEach(track => track.stop());
+          this.phoneCallStream = null;
+        }
+        
+        // 如果还在通话中，尝试重新开始录音
         if (this.isPhoneCallActive) {
-          // 尝试重新开始录音
           setTimeout(() => {
-            if (this.isPhoneCallActive) {
+            if (this.isPhoneCallActive && !this.isRecording) {
               this.startPhoneCallRecording();
             }
-          }, 1000);
+          }, 2000);
         }
       }
     },
@@ -1867,10 +1943,6 @@ export default {
         this.showVoiceError = false;
         this.voiceErrorMessage = '';
       },
-
-    toggleToolbar() {
-      this.toolbarExpanded = !this.toolbarExpanded;
-    },
 
     goToLogin() {
       this.$router.push('/login');
@@ -2159,10 +2231,10 @@ body {
 
 /* 收起按钮样式 */
 .collapse-btn {
-  width: 32px;
-  height: 32px;
-  background: rgba(74, 144, 226, 0.1);
-  border: 1px solid rgba(74, 144, 226, 0.2);
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: none;
   border-radius: 8px;
   display: flex;
   align-items: center;
@@ -2211,6 +2283,77 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: 8px;
+}
+
+/* 对话列表骨架屏 */
+.skeleton-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+}
+.skeleton-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--skeleton-base);
+}
+.skeleton-lines { flex: 1; }
+.skeleton-line {
+  height: 10px;
+  border-radius: 6px;
+  background: var(--skeleton-base);
+  margin-bottom: 8px;
+}
+.skeleton-line:last-child { margin-bottom: 0; }
+
+/* 闪烁渐变动画 */
+.shimmer {
+  background-image: linear-gradient(90deg,
+    var(--skeleton-base) 0%,
+    var(--skeleton-base) 35%,
+    var(--skeleton-highlight) 50%,
+    var(--skeleton-base) 65%,
+    var(--skeleton-base) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmerMove 1.4s ease-in-out infinite;
+}
+@keyframes shimmerMove {
+  0% { background-position: -100% 0; }
+  100% { background-position: 100% 0; }
+}
+
+/* 颜色变量（亮/暗） */
+:root {
+  --skeleton-base: rgba(0,0,0,0.06);
+  --skeleton-highlight: rgba(255,255,255,0.6);
+}
+body.dark {
+  --skeleton-base: rgba(255,255,255,0.12);
+  --skeleton-highlight: rgba(255,255,255,0.24);
+}
+
+/* 对话列表滚动条样式 */
+.conversation-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.conversation-list::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.conversation-list::-webkit-scrollbar-thumb {
+  background: rgba(74, 144, 226, 0.3);
+  border-radius: 3px;
+  transition: background 0.3s ease;
+}
+
+.conversation-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(74, 144, 226, 0.5);
 }
 
 .conversation-item {
@@ -2292,26 +2435,22 @@ body {
   top: 15px;
   left: 20px;
   z-index: 1000;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(74, 144, 226, 0.3);
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: none;
   border-radius: 8px;
-  padding: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-  color: #4A90E2;
-  width: 40px;
-  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  color: #4A90E2;
 }
 
 .expand-sidebar-btn:hover {
-  background: rgba(74, 144, 226, 0.1);
-  border-color: #4A90E2;
+  background: rgba(74, 144, 226, 0.2);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(74, 144, 226, 0.2);
 }
 
 /* 顶部导航栏 */
@@ -2348,6 +2487,25 @@ body {
   background-clip: text;
 }
 
+/* Logo 容器：亮色渐变 / 暗色发光 */
+.logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 50px;
+  padding: 6px 10px;
+  border-radius: 12px;
+}
+.logo img { display: block; }
+.logo-light {
+  background: linear-gradient(135deg, #ffffff 0%, #f3f7ff 100%);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.6);
+}
+.logo-dark {
+  background: transparent;
+  filter: drop-shadow(0 0 10px rgba(91,167,247,0.6)) drop-shadow(0 4px 12px rgba(0,0,0,0.4));
+}
+
 .header-right {
   display: flex;
   align-items: center;
@@ -2358,7 +2516,7 @@ body {
 /* 主题标签样式 */
 .theme-label {
   font-size: 14px;
-  color: #666;
+  color: #333;
   font-weight: 500;
   margin-right: 8px;
   transition: color 0.3s ease;
@@ -2394,12 +2552,27 @@ body {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
+/* 用户菜单样式 - 更新为TDesign触发器样式 */
+.user-menu-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.user-menu-trigger:hover {
+  background: rgba(74, 144, 226, 0.1);
+}
+
 /* 用户头像样式 */
 .user-avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  margin-left: 12px;
   cursor: pointer;
   transition: all 0.3s ease;
   border: 2px solid rgba(255, 255, 255, 0.2);
@@ -2411,6 +2584,119 @@ body {
   box-shadow: 0 4px 12px rgba(74, 144, 226, 0.2);
 }
 
+/* 用户名样式 - 与主题标签样式保持一致 */
+.username {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+  transition: color 0.3s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+/* 下拉箭头样式 */
+.dropdown-icon {
+  transition: transform 0.3s ease;
+  color: #666;
+}
+
+.user-menu-trigger:hover .dropdown-icon {
+  transform: rotate(180deg);
+}
+
+/* TDesign下拉菜单自定义样式 */
+:deep(.user-dropdown-popup) {
+  z-index: 999999 !important;
+}
+
+:deep(.user-dropdown-popup .t-dropdown__menu) {
+  background: rgba(255, 255, 255, 0.98) !important;
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(229, 229, 229, 0.3) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15) !important;
+  min-width: 140px !important;
+  padding: 4px !important;
+}
+
+:deep(.user-dropdown-popup .t-dropdown__item) {
+  border-radius: 8px !important;
+  margin: 2px !important;
+  padding: 12px 16px !important;
+  transition: all 0.3s ease !important;
+}
+
+:deep(.user-dropdown-popup .t-dropdown__item:hover) {
+  background: rgba(74, 144, 226, 0.1) !important;
+  color: #4A90E2 !important;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 用户信息区域 */
+.user-info {
+  padding: 16px;
+  text-align: center;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+  text-align: center;
+}
+
+.user-email {
+  font-size: 12px;
+  color: #999;
+  text-align: center;
+}
+
+/* 菜单分割线 */
+.menu-divider {
+  height: 1px;
+  background: rgba(229, 229, 229, 0.5);
+  margin: 0 12px;
+}
+
+/* 菜单项样式 */
+.menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-radius: 0 0 12px 12px;
+}
+
+.menu-item:hover {
+  background: rgba(74, 144, 226, 0.1);
+  color: #4A90E2;
+}
+
+.menu-item svg {
+  transition: color 0.3s ease;
+}
+
 /* 聊天区域 */
 .chat-area {
   flex: 1;
@@ -2419,10 +2705,42 @@ body {
   background: linear-gradient(135deg, rgba(74, 144, 226, 0.02) 0%, rgba(91, 167, 247, 0.02) 100%);
 }
 
+/* 聊天区骨架屏 */
+.skeleton-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.skeleton-bubble {
+  height: 18px;
+  border-radius: 16px;
+  background: var(--skeleton-base);
+}
+
+/* 聊天区域滚动条样式 */
+.chat-area::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-area::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.chat-area::-webkit-scrollbar-thumb {
+  background: rgba(74, 144, 226, 0.3);
+  border-radius: 3px;
+  transition: background 0.3s ease;
+}
+
+.chat-area::-webkit-scrollbar-thumb:hover {
+  background: rgba(74, 144, 226, 0.5);
+}
+
 /* 消息样式 */
 .message {
   margin-bottom: 24px;
-  animation: messageSlideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @keyframes messageSlideIn {
@@ -2538,31 +2856,27 @@ body {
 
 /* 操作按钮样式 */
 .action-btn {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(229, 229, 229, 0.5);
+  background: transparent;
+  border: none;
   border-radius: 4px;
   padding: 4px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
   width: 24px;
   height: 24px;
+  color: #666;
 }
 
 .action-btn:hover {
-  background: rgba(74, 144, 226, 0.1);
-  border-color: rgba(74, 144, 226, 0.3);
-  transform: scale(1.05);
+  background: rgba(0,0,0,0.05);
+  color: #333;
+  transition: var(--transition-fast);
 }
 
-.edit-btn:hover {
-  background: rgba(255, 193, 7, 0.1);
-  border-color: rgba(255, 193, 7, 0.3);
-}
+
 
 /* 用户消息内容包装器 */
 .message-content-wrapper {
@@ -2595,7 +2909,6 @@ body {
 /* 智能体消息样式 - 气泡格式 */
 .assistant-message {
   margin-bottom: 24px;
-  animation: messageSlideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -2612,7 +2925,7 @@ body {
 }
 
 .assistant-message-content {
-  background: rgba(240, 240, 240, 0.9);
+  background: rgba(248, 248, 248, 0.95);
   border: 1px solid rgba(229, 229, 229, 0.3);
   border-radius: 18px;
   padding: 12px 16px;
@@ -2643,44 +2956,40 @@ body {
 
 /* 深色模式下的智能体消息气泡 */
 body.dark .assistant-message-content {
-  background: rgba(45, 45, 45, 0.9);
+  background: rgba(55, 55, 55, 0.95);
   border-color: rgba(70, 70, 70, 0.3);
   color: #ffffff;
 }
 
-/* 复制按钮样式 - 统一样式 */
 .copy-btn, .action-btn {
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(229, 229, 229, 0.5);
+  background: transparent;
+  border: none;
   border-radius: 4px;
   padding: 4px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
   width: 24px;
   height: 24px;
+  color: #666;
 }
 
 .copy-btn:hover, .action-btn:hover {
-  background: rgba(74, 144, 226, 0.1);
-  border-color: rgba(74, 144, 226, 0.3);
-  transform: scale(1.05);
+  background: rgba(0,0,0,0.06);
 }
 
 /* 深色模式下的按钮样式 */
 body.dark .copy-btn, body.dark .action-btn {
-  background: rgba(45, 45, 45, 0.95);
-  border-color: rgba(70, 70, 70, 0.5);
-  color: #ffffff;
+  background: transparent;
+  border: none;
+  color: #cccccc;
 }
 
 body.dark .copy-btn:hover, body.dark .action-btn:hover {
-  background: rgba(74, 144, 226, 0.2);
-  border-color: rgba(74, 144, 226, 0.4);
+  background: rgba(255,255,255,0.12);
+  color: #fff;
 }
 
 /* 智能体消息复制按钮 - 现在在底部操作区域中 */
@@ -2788,8 +3097,6 @@ color: #333;
 }
 
 .quick-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 20px rgba(74, 144, 226, 0.3);
   border-color: #4A90E2;
 }
 
@@ -2798,7 +3105,6 @@ color: #333;
 }
 
 .quick-btn:active {
-  transform: translateY(-1px);
   transition: transform 0.1s;
 }
 
@@ -2927,8 +3233,10 @@ color: #333;
 }
 
 .input-wrapper:focus-within {
-  border-color: #4A90E2;
-  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+  /* 保持内层边框为中性颜色，避免出现有色内框 */
+  border-color: rgba(229, 229, 229, 0.3);
+  /* 可保留轻微外层提升感，如需完全无色可将 box-shadow 置为 none */
+  box-shadow: none;
   transform: translateY(-2px);
 }
 
@@ -2943,6 +3251,14 @@ color: #333;
   max-height: 120px;
   font-family: inherit;
   background: transparent;
+}
+
+/* 移除 textarea 自身的聚焦描边与发光，避免出现内层有色框 */
+.message-input:focus,
+.message-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+  border: none;
 }
 
 .message-input::placeholder {
@@ -2971,7 +3287,7 @@ color: #333;
   height: 28px;
   border: none;
   border-radius: 6px;
-  background: rgba(245, 245, 245, 0.9);
+  background: transparent;
   cursor: pointer;
   transition: all 0.2s ease;
   color: #666;
@@ -3053,88 +3369,57 @@ color: #333;
   transform: none;
 }
 
-
-.floating-toolbar {
-  position: fixed;
-  right: 20px;
-  top: 30%; 
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  z-index: 1000;
-  user-select: none;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.toolbar-toggle {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
+/* 顶部导航栏按钮样式 */
+.header-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   border: none;
-  background: linear-gradient(135deg, #4A90E2 0%, #5BA7F7 100%);
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 20px rgba(74, 144, 226, 0.4);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.toolbar-toggle:hover {
-  transform: translateY(-3px) scale(1.05);
-  box-shadow: 0 8px 30px rgba(74, 144, 226, 0.5);
-}
-
-.toolbar-toggle.expanded {
-  background: linear-gradient(135deg, #5BA7F7 0%, #4A90E2 100%);
-}
-
-.toolbar-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.toolbar-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(255, 255, 255, 0.95);
+  background: transparent;
   color: #4A90E2;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  margin-right: 8px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(10px);
 }
 
-.toolbar-btn:hover {
-  transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 4px 20px rgba(74, 144, 226, 0.3);
+.header-btn:hover {
   background: rgba(74, 144, 226, 0.1);
+  transform: translateY(-1px);
 }
 
 /* 深色模式样式 */
 body.dark {
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+
+body.dark .header-btn {
+  background: transparent;
+  color: #ffffff;
+}
+
+body.dark .header-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+body.dark .collapse-btn {
+  background: transparent;
+  color: #ffffff;
+}
+
+body.dark .collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+body.dark .expand-sidebar-btn {
+  background: transparent;
+  color: #ffffff;
+}
+
+body.dark .expand-sidebar-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 body.dark .app {
@@ -3159,6 +3444,23 @@ body.dark .chat-area {
   background: linear-gradient(135deg, rgba(26, 26, 46, 0.2) 0%, rgba(15, 52, 96, 0.2) 100%);
 }
 
+/* 深色模式下的滚动条样式 */
+body.dark .conversation-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+body.dark .conversation-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+body.dark .chat-area::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+body.dark .chat-area::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
 body.dark .conv-title {
   color: #ffffff;
 }
@@ -3173,6 +3475,69 @@ body.dark .TDesign-switch {
 
 body.dark .TDesign-switch__handle {
   transform: translateX(20px);
+}
+
+/* 深色模式下的用户菜单样式 */
+body.dark .user-menu-trigger:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+}
+
+body.dark .username {
+  color: #f0f0f0;
+}
+
+body.dark .dropdown-icon {
+  color: #d0d0d0;
+}
+
+body.dark .user-dropdown {
+  background: rgba(45, 45, 45, 0.95);
+  border-color: rgba(96, 96, 96, 0.3);
+}
+
+body.dark .user-name {
+  color: #ffffff;
+}
+
+body.dark .user-email {
+  color: #cccccc;
+}
+
+body.dark .menu-divider {
+  background: rgba(96, 96, 96, 0.3);
+}
+
+body.dark .menu-item {
+  color: #cccccc;
+}
+
+body.dark .menu-item:hover {
+  background: rgba(74, 144, 226, 0.2);
+  color: #5BA7F7;
+}
+
+/* 深色模式下的TDesign下拉菜单样式 - 增强优先级 */
+body.dark :deep(.t-dropdown__popup .t-dropdown__menu),
+body.dark :deep(.user-dropdown-popup .t-dropdown__menu) {
+  background: rgba(28, 32, 40, 0.98) !important;
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6) !important;
+}
+
+body.dark :deep(.t-dropdown__popup .t-dropdown__item),
+body.dark :deep(.user-dropdown-popup .t-dropdown__item) {
+  color: #f0f0f0 !important;
+  transition: all 0.3s ease !important;
+  border-radius: 6px !important;
+}
+
+body.dark :deep(.t-dropdown__popup .t-dropdown__item:hover),
+body.dark :deep(.user-dropdown-popup .t-dropdown__item:hover) {
+  background: rgba(74, 144, 226, 0.25) !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
 }
 
 /* 深色模式下的用户消息样式 */
@@ -3190,16 +3555,16 @@ body.dark .message.assistant .message-content {
 
 /* 深色模式下的操作按钮样式 */
 body.dark .action-btn {
-  background: rgba(64, 64, 64, 0.95);
-  border-color: rgba(96, 96, 96, 0.5);
-  color: #ffffff;
+  background: transparent;
+  border: none;
+  color: #cccccc;
 }
 
 /* 深色模式下的复制按钮样式 - 与用户按钮保持一致 */
 body.dark .copy-btn {
-  background: rgba(64, 64, 64, 0.95);
-  border-color: rgba(96, 96, 96, 0.5);
-  color: #ffffff;
+  background: transparent;
+  border: none;
+  color: #cccccc;
 }
 
 /* 深色模式下的编辑图标颜色 */
@@ -3243,6 +3608,20 @@ body.dark .message-input {
 
 body.dark .message-input::placeholder {
   color: #999;
+}
+
+body.dark .attachment-btn,
+body.dark .voice-btn,
+body.dark .call-btn {
+  background: transparent;
+  color: #cccccc;
+}
+
+body.dark .attachment-btn:hover,
+body.dark .voice-btn:hover,
+body.dark .call-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
 }
 
 body.dark .conversation-item:hover {
@@ -3737,6 +4116,31 @@ body.dark .remove-file-btn {
 
 body.dark .remove-file-btn:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+/* 全局深色模式下拉菜单样式覆盖 */
+body.dark :deep(.t-popup),
+body.dark :deep(.t-dropdown),
+body.dark :deep(.t-dropdown__popup) {
+  --td-bg-color-container: rgba(28, 32, 40, 0.98) !important;
+  --td-text-color-primary: #f0f0f0 !important;
+  --td-bg-color-container-hover: rgba(74, 144, 226, 0.25) !important;
+}
+
+body.dark :deep(.t-dropdown__menu) {
+  background: rgba(28, 32, 40, 0.98) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6) !important;
+}
+
+body.dark :deep(.t-dropdown__item) {
+  color: #f0f0f0 !important;
+  background: transparent !important;
+}
+
+body.dark :deep(.t-dropdown__item:hover) {
+  background: rgba(74, 144, 226, 0.25) !important;
+  color: #ffffff !important;
 }
 
 

@@ -1,6 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import ChatApp from '../components/ChatApp.vue'
-import Login from '../components/Login.vue'
+import ChatApp from '../views/ChatApp.vue'
+import Login from '../views/Login.vue'
+
+// 通过环境变量控制是否禁用鉴权（Vite 仅暴露以 VITE_ 开头的变量）
+const DISABLE_AUTH = ['1', 'true', 'yes', 'on'].includes(String(import.meta.env.VITE_DISABLE_AUTH ?? '').toLowerCase())
 
 const routes = [
   {
@@ -23,6 +26,9 @@ const router = createRouter({
 
 // 路由守卫
 router.beforeEach((to, from, next) => {
+  if (DISABLE_AUTH) {
+    return next()
+  }
   const token = localStorage.getItem('access_token')
   
   // 如果路由需要认证

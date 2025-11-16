@@ -3,6 +3,7 @@ import App from './App.vue'
 import router from './router'
 import TDesign from 'tdesign-vue-next'
 import 'tdesign-vue-next/es/style/index.css'
+import './style/theme-light.css' // 高级白色主体主题样式
 import './store/auth.js' // 导入认证存储以确保初始化
 import preloader from './utils/preloader.js' // 导入预加载器
 

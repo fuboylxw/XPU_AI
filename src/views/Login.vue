@@ -4,7 +4,7 @@
     <div class="nav-header">
       <t-head-menu>
         <template #logo>
-          <img height="55" src="./tuan7.svg" alt="logo" />
+          <img height="55" src="../components/tuan7.svg" alt="logo" />
         </template>
       </t-head-menu>
     </div>
@@ -13,7 +13,7 @@
     <div class="login-container">
     <!-- 左侧装饰图案 -->
     <div class="left-decoration">
-      <img src="./tuan5.svg" alt="装饰图案" class="decoration-svg" />
+      <img src="../components/tuan5.svg" alt="装饰图案" class="decoration-svg" />
     </div>
 
     <!-- 登录卡片 -->
@@ -75,7 +75,7 @@
         <div class="qr-login">
           <div class="qr-code">
             <div class="qr-code-container">
-              <img src="./android.png" alt="扫码登录" width="160" height="160" />
+              <img src="../components/android.png" alt="扫码登录" width="160" height="160" />
             </div>
           </div>
           <div class="qr-status">
@@ -270,6 +270,9 @@
 import { authStore } from '../store/auth.js'
 import { useMessage } from '../composables/useMessage.js'
 
+// 通过环境变量控制是否禁用鉴权（Vite 仅暴露以 VITE_ 开头的变量）
+const DISABLE_AUTH = ['1', 'true', 'yes', 'on'].includes(String(import.meta.env.VITE_DISABLE_AUTH ?? '').toLowerCase())
+
 export default {
   name: 'Login',
   setup() {
@@ -344,6 +347,16 @@ export default {
 
       this.isLoading = true
       try {
+        if (DISABLE_AUTH) {
+          // 开发临时逻辑：跳过后端校验，任意账号密码可登录
+          const username = this.unifiedForm.usernameOrEmail || 'guest'
+          const mockUser = { username, nickname: username }
+          authStore.login('dev-token', mockUser)
+          this.message && this.message.success && this.message.success('登录成功！（开发模式）')
+          this.$router.push('/')
+          return
+        }
+
         const response = await fetch('http://localhost:8000/api/auth/login/', {
           method: 'POST',
           headers: {
@@ -362,17 +375,21 @@ export default {
           authStore.login(data.access_token, data.user)
           
           // 显示成功消息
-          this.message.success('登录成功！')
+          this.message && this.message.success && this.message.success('登录成功！')
           
           // 跳转到聊天界面
           this.$router.push('/')
         } else {
           // 使用全局消息提示显示错误
-          this.message.handleApiError(response, data, '登录失败')
+          this.message && this.message.handleApiError
+            ? this.message.handleApiError(response, data, '登录失败')
+            : console.error('登录失败', data)
         }
       } catch (error) {
         // 使用全局消息提示处理网络错误
-        this.message.handleNetworkError(error, '网络错误，请稍后重试')
+        this.message && this.message.handleNetworkError
+          ? this.message.handleNetworkError(error, '网络错误，请稍后重试')
+          : console.error('网络错误，请稍后重试', error)
       } finally {
         this.isLoading = false
       }
@@ -566,7 +583,7 @@ export default {
   padding: 0 5%;
   position: relative;
   overflow: hidden;
-  background-image: url('./tuan1.svg');
+  background-image: url('../components/tuan1.svg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
