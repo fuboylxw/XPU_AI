@@ -95,9 +95,9 @@
           <div class="input-wrap">
             <textarea ref="messageInput" v-model="inputMessage" class="input" rows="1" @keydown.enter.prevent="handleEnterKey" @input="adjustTextareaHeight" placeholder="输入您的问题，让织语为您解答"></textarea>
             <div class="input-actions">
-              <button class="icon-btn" :class="{ active: isWebSearchEnabled }" @click="isWebSearchEnabled = !isWebSearchEnabled" title="联网搜索"><Icon type="jump-icon" :size="18" /></button>
+              <button class="icon-btn web-search-btn" :class="{ 'web-search-on': isWebSearchEnabled }" @click="isWebSearchEnabled = !isWebSearchEnabled" title="联网搜索"><Icon type="jump-icon" :size="18" /></button>
               <button class="icon-btn" @click="handleFileUpload" title="文件上传"><Icon type="file-default" :size="18" /></button>
-              <button class="icon-btn" :class="{ recording: isRecording }" @click="handleVoiceInput" title="语音输入"><Icon type="mic" :size="18" /></button>
+              <button class="icon-btn voice-btn" :class="{ 'voice-on': isRecording }" @click="handleVoiceInput" title="语音输入"><Icon type="mic" :size="18" /></button>
               <button class="icon-btn" @click="openCall" title="电话输入"><Icon type="call" :size="18" /></button>
               <button class="send-btn" @click="sendMessage" :disabled="!canSend" title="发送"><Icon type="send" :size="18" /></button>
               <button class="stop-btn" v-if="isStreaming" @click="stopStreaming" title="停止"><Icon type="stop" :size="18" /></button>
@@ -539,21 +539,34 @@ export default {
       input.click()
     },
     async handleVoiceInput() {
+      // 如果正在录音，则停止录制并释放麦克风资源
       if (this.isRecording) {
-        try { this.mediaRecorder && this.mediaRecorder.stop() } catch (e) {}
+        try {
+          if (this.mediaRecorder) {
+            const stream = this.mediaRecorder.stream
+            try { this.mediaRecorder.stop() } catch (_) {}
+            if (stream && stream.getTracks) {
+              stream.getTracks().forEach(t => { try { t.stop() } catch (_) {} })
+            }
+            this.mediaRecorder = null
+          }
+        } catch (e) {}
         this.isRecording = false
       } else {
+        // 开始录音并持有媒体流，onstop 中只做数据处理，释放在上面的关闭分支里统一处理
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
           this.audioChunks = []
           this.mediaRecorder = new MediaRecorder(stream)
           this.mediaRecorder.ondataavailable = e => { if (e.data && e.data.size > 0) this.audioChunks.push(e.data) }
           this.mediaRecorder.onstop = async () => {
-            const blob = new Blob(this.audioChunks, { type: 'audio/webm' })
-            this.showVoiceSuccess = true
-            this.voiceSuccessMessage = '语音已录制'
-            const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' })
-            this.uploadedFiles.push(file)
+            try {
+              const blob = new Blob(this.audioChunks, { type: 'audio/webm' })
+              this.showVoiceSuccess = true
+              this.voiceSuccessMessage = '语音已录制'
+              const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' })
+              this.uploadedFiles.push(file)
+            } catch (err) {}
           }
           this.mediaRecorder.start()
           this.isRecording = true
@@ -732,8 +745,30 @@ export default {
 .dark .input::placeholder { color: rgba(229,229,229,0.4); }
 .dark .input::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
 .dark .input::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
-.icon-btn { width: 32px; height: 32px; border: none; background: transparent; color: var(--text-2); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: color 0.2s ease; }
+.icon-btn { width: 32px; height: 32px; border: none; background: transparent; color: var(--text-2); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease; }
 .icon-btn:hover { color: var(--accent-1); }
+.web-search-btn.web-search-on {
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.4);
+  border-radius: 999px;
+}
+.dark .web-search-btn.web-search-on {
+  background: rgba(96, 165, 250, 0.18);
+  color: #bfdbfe;
+  box-shadow: 0 0 0 1px rgba(191, 219, 254, 0.5);
+}
+.voice-btn.voice-on {
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
+  box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.45);
+  border-radius: 999px;
+}
+.dark .voice-btn.voice-on {
+  background: rgba(248, 113, 113, 0.2);
+  color: #fecaca;
+  box-shadow: 0 0 0 1px rgba(254, 202, 202, 0.55);
+}
 .send-btn, .stop-btn { width: 36px; height: 32px; padding: 0; border: none; border-radius: 8px; background: var(--accent-1); color: #fff; display: flex; align-items: center; justify-content: center; }
 .send-btn[disabled] { background: #9aa0a6; color: #fff; cursor: not-allowed; opacity: 0.7; }
 .stop-btn { background: #ef4444; }

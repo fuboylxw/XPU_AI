@@ -81,7 +81,7 @@
             </div>
             <div v-for="m in messages" :key="m.id" class="msg-wrapper">
               <div class="msg" :class="m.type">
-                <div v-if="m.content" class="msg-content" v-html="renderMarkdown(m.content)"></div>
+                <div v-if="m.content" class="msg-content">{{ m.content }}</div>
                 <div v-if="m.fileInfo" class="file-row">{{ m.fileInfo.name }} · {{ (m.fileInfo.size/1024).toFixed(1) }}KB</div>
                 <div v-if="m.type==='assistant' && m.streaming" class="streaming-indicator"><span class="typing-dots"><span></span><span></span><span></span></span><span class="streaming-text">正在生成回答...</span></div>
               </div>
@@ -123,7 +123,14 @@
         </div>
       </div>
       <div class="chat-right">
-        <TaskSidebar ref="taskSidebar" :visible="true" :conversation-id="currentConversation" :api-base-url="apiBaseUrl" :seed-title="lastUserTaskTitle" />
+        <TaskSidebar
+          ref="taskSidebar"
+          :visible="true"
+          :conversation-id="currentConversation"
+          :api-base-url="apiBaseUrl"
+          :seed-title="lastUserTaskTitle"
+          @run-task="onRunTask"
+        />
       </div>
     </div>
     <div v-if="showAppModal" class="modal-overlay" @click="showAppModal = false">
@@ -168,6 +175,7 @@ export default {
       apiBaseUrl: 'http://localhost:8000/api',
       conversations: [],
       taskHistories: [],
+      taskProgressSource: null,
       showAppModal: false,
       isDragOver: false,
       showDragOverlay: false,
@@ -271,38 +279,88 @@ export default {
       this.adjustTextareaHeight()
       this.scrollToBottom()
       if (this.$refs.taskSidebar) {
+        // 确保根任务存在
         await this.$refs.taskSidebar.ensureTask(this.currentConversation, titleForTask)
+        // 触发一次任务拆分：把用户的一句话拆成多个子任务
+        await this.$refs.taskSidebar.splitTasks(this.currentConversation, titleForTask)
         await this.$refs.taskSidebar.loadTasks(this.currentConversation)
       }
+
+      // 创建一个 assistant 消息，用于展示整体结果/汇总（流式追加）
       const assistantMessage = { id: Date.now()+1, type: 'assistant', sender: 'assistant', content: '', time: this.formatTime(new Date()), streaming: true }
       this.messages.push(assistantMessage)
       this.isStreaming = true
+
       try {
-        let pendingHistId = null
-        const prePayload = { task_name: titleForTask, description: messageContent, status: 'loading', result: null }
-        const preHist = this.$refs.taskSidebar ? await this.$refs.taskSidebar.appendHistory(this.currentConversation, prePayload) : null
-        pendingHistId = preHist && preHist.id ? preHist.id : null
-        if (this.$refs.taskSidebar) await this.$refs.taskSidebar.loadTasks(this.currentConversation)
-        await this.loadTaskHistories(this.currentConversation)
         const body = { conversation_id: this.currentConversation, user_id: 'test_user', message: messageContent }
-        const resp = await fetch(`${this.apiBaseUrl}/chat/`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-        if (resp.ok) {
-          const data = await resp.json()
-          assistantMessage.content = data.response || ''
-          assistantMessage.streaming = false
-          this.isStreaming = false
-          if (pendingHistId && this.$refs.taskSidebar) await this.$refs.taskSidebar.updateHistory(pendingHistId, { status: 'done', result: assistantMessage.content })
-          if (this.$refs.taskSidebar) await this.$refs.taskSidebar.loadTasks(this.currentConversation)
-          await this.loadTaskHistories(this.currentConversation)
-        } else {
-          const errText = await resp.text()
+        const resp = await fetch(`${this.apiBaseUrl}/chat/stream`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        })
+
+        if (!resp.ok || !resp.body) {
+          const errText = resp && !resp.ok ? await resp.text() : '无法建立流式连接'
           assistantMessage.content = `请求失败: ${errText}`
           assistantMessage.streaming = false
           this.isStreaming = false
-          if (pendingHistId && this.$refs.taskSidebar) await this.$refs.taskSidebar.updateHistory(pendingHistId, { status: 'fail' })
-          if (this.$refs.taskSidebar) await this.$refs.taskSidebar.loadTasks(this.currentConversation)
-          await this.loadTaskHistories(this.currentConversation)
+          return
         }
+
+        const reader = resp.body.getReader()
+        const decoder = new TextDecoder('utf-8')
+        let done = false
+        let buffer = ''
+
+        while (!done) {
+          const { value, done: readerDone } = await reader.read()
+          if (readerDone) {
+            done = true
+            break
+          }
+          if (!value) continue
+
+          // 累积当前块，并按行切分（SSE 每个 JSON 前有 data: 前缀）
+          buffer += decoder.decode(value, { stream: true })
+          let lines = buffer.split('\n')
+          buffer = lines.pop() || '' // 最后一行可能是不完整 JSON，留到下一轮
+
+          for (let line of lines) {
+            let trimmed = line.trim()
+            if (!trimmed) continue
+
+            // 兼容 "data: {json}" 或 "data:{json}" 这类前缀
+            if (trimmed.startsWith('data:')) {
+              trimmed = trimmed.slice(5).trim()
+            }
+            if (!trimmed) continue
+
+            try {
+              const obj = JSON.parse(trimmed)
+              // 常规块：{"chunk": "...", "type": "chunk"}
+              if (obj && obj.type === 'chunk' && typeof obj.chunk === 'string') {
+                // console.log('chunk 来了 ===>', obj.chunk)
+                assistantMessage.content += obj.chunk
+                this.scrollToBottom()
+              }
+              // 结束块：{"type": "done", "full_response": "..."}
+              else if (obj && obj.type === 'done') {
+                // console.log('done 块 ===>', obj.full_response)
+                if (typeof obj.full_response === 'string' && !assistantMessage.content) {
+                  assistantMessage.content = obj.full_response
+                }
+                done = true
+                break
+              }
+            } catch (_) {
+              // 单行 JSON 解析失败就跳过，避免中断整个流
+              continue
+            }
+          }
+        }
+
+        assistantMessage.streaming = false
+        this.isStreaming = false
       } catch (e) {
         assistantMessage.content = '抱歉，处理消息时出现错误。'
         assistantMessage.streaming = false
@@ -443,7 +501,15 @@ export default {
         console.error('重命名任务失败:', e)
       }
     },
-    async selectConversation(id) { this.currentConversation = id; await this.loadConversationHistory(id); if (this.$refs.taskSidebar) { await this.$refs.taskSidebar.loadTasks(id) } await this.loadTaskHistories(id) },
+    async selectConversation(id) {
+      this.currentConversation = id
+      await this.loadConversationHistory(id)
+      if (this.$refs.taskSidebar) {
+        await this.$refs.taskSidebar.loadTasks(id)
+      }
+      await this.loadTaskHistories(id)
+      this.startTaskProgressStream(id)
+    },
     async loadTaskHistories(conversationId) {
       try {
         const resp = await fetch(`${this.apiBaseUrl}/tasks/${encodeURIComponent(conversationId)}/history/`)
@@ -455,9 +521,102 @@ export default {
         }
       } catch (e) { this.taskHistories = [] }
     },
+    // SSE：监听后端的任务执行进度，把思考过程写入对应子任务
+    startTaskProgressStream(conversationId) {
+      try {
+        if (this.taskProgressSource) {
+          this.taskProgressSource.close()
+          this.taskProgressSource = null
+        }
+        if (!conversationId) return
+
+        const url = `${this.apiBaseUrl.replace(/\/$/, '')}/tasks/${encodeURIComponent(conversationId)}/progress`
+        const es = new EventSource(url)
+        this.taskProgressSource = es
+
+        es.onmessage = async (evt) => {
+          if (!evt || !evt.data) return
+          let payload
+          try { payload = JSON.parse(evt.data) } catch (_) { return }
+          if (!payload) return
+
+          const { task_id, progress_type, data, status } = payload
+
+          // 简单策略：对于 thinking/decision/tool_* 等过程，将 data.reasoning 或 data.message 追加到对应 history 的 result 文本中
+          if (task_id && progress_type) {
+            const target = (this.taskHistories || []).find(h => String(h.id) === String(task_id))
+            if (target) {
+              const pieces = []
+              const labelMap = {
+                start: '开始',
+                thinking: '思考',
+                decision: '决策',
+                tool_call: '调用工具',
+                tool_result: '工具结果',
+                result: '结果',
+                error: '错误'
+              }
+              const label = labelMap[progress_type] || progress_type
+              const content = (data && (data.reasoning || data.message || data.detail || JSON.stringify(data))) || ''
+              if (content) {
+                pieces.push(`- **${label}**：${content}`)
+              }
+
+              const merged = [target.result || target.description || '', pieces.join('\n')].filter(Boolean).join('\n')
+
+              try {
+                await fetch(`${this.apiBaseUrl}/tasks/history/${encodeURIComponent(task_id)}/`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    status: status || target.status,
+                    result: merged
+                  })
+                })
+              } catch (_) {}
+
+              // 本地再刷新一次任务历史，保持 UI 同步
+              await this.loadTaskHistories(conversationId)
+            }
+          }
+        }
+
+        es.onerror = () => {
+          if (this.taskProgressSource) {
+            this.taskProgressSource.close()
+            this.taskProgressSource = null
+          }
+        }
+      } catch (_) {}
+    },
     formatStageTime(t) {
       const d = new Date(t.updated_at || t.created_at || Date.now())
       return d.toLocaleString('zh-CN', { hour: '2-digit', minute: '2-digit', year: 'numeric', month: '2-digit', day: '2-digit' })
+    },
+    // 用户在任务侧边栏点击“开始执行”时触发
+    async onRunTask(task) {
+      try {
+        if (!this.currentConversation || !task || !task.id) return
+
+        // 调用专门的执行接口，触发后端 agent 开始处理该子任务
+        await fetch(`${this.apiBaseUrl}/tasks/${encodeURIComponent(this.currentConversation)}/run/`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task_id: task.id, user_id: 'test_user' })
+        })
+
+        // 立刻把本地状态标记为执行中
+        try {
+          await fetch(`${this.apiBaseUrl}/tasks/history/${encodeURIComponent(task.id)}/`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'executing' })
+          })
+        } catch (_) {}
+
+        await this.loadTaskHistories(this.currentConversation)
+        this.startTaskProgressStream(this.currentConversation)
+      } catch (e) {}
     },
     async loadConversationHistory(conversationId) {
       try {
@@ -553,8 +712,14 @@ export default {
 .stage-status.status-pending { background: rgba(156,163,175,0.15); color: #6b7280; }
 .stage-time { font-size: 12px; color: var(--text-2); }
 .stage-body { padding-top: 4px; }
-.stage-result { font-size: 14px; line-height: 1.7; color: #333; }
-.stage-desc { font-size: 13px; color: #666; }
+.stage-result { font-size: 13px; line-height: 1.7; color: #374151; padding-left: 8px; border-left: 2px solid rgba(148,163,184,0.6); }
+.stage-result :deep(ul), .stage-result :deep(ol) { margin: 4px 0; padding-left: 18px; }
+.stage-result :deep(li) { margin: 2px 0; }
+.stage-result :deep(strong) { color: #111827; }
+.stage-desc { font-size: 13px; color: #6b7280; }
+.stage-result :deep(p) { margin: 2px 0; }
+.stage-result :deep(code) { padding: 0 4px; border-radius: 4px; background: rgba(229,231,235,0.8); }
+.stage-result :deep(pre code) { background: transparent; }
 .dark .task-stage-card { background: rgba(30,41,59,0.6); border-color: rgba(239,68,68,0.25); }
 .dark .stage-title { color: #e5e7eb; }
 .dark .stage-result { color: #e5e7eb; }

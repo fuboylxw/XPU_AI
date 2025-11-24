@@ -13,9 +13,14 @@
             <Icon v-else type="x-circle" :size="18" />
           </span>
           <div class="title">{{ task.title }}</div>
-          <button class="task-more-btn" title="删除" @click.stop="del(i)">
-            <Icon type="trash" :size="18" />
-          </button>
+          <div class="task-card-actions">
+            <button class="task-more-btn" title="开始执行" @click.stop="run(i)">
+              <Icon type="play" :size="18" />
+            </button>
+            <button class="task-more-btn" title="删除" @click.stop="del(i)">
+              <Icon type="trash" :size="18" />
+            </button>
+          </div>
         </div>
         <div class="task-subtitle" :class="statusClass(task.status)">{{ statusText(task.status) }}</div>
       </div>
@@ -29,12 +34,13 @@ export default {
   name: 'TaskSidebar',
   components: { Icon },
   props: { visible: { type: Boolean, default: false }, conversationId: { type: String, default: '' }, apiBaseUrl: { type: String, default: '' }, userId: { type: String, default: 'test_user' }, seedTitle: { type: String, default: '' } },
-  emits: [],
+  emits: ['run-task'],
   data() { return { items: [], cardEls: [], cardWidths: [] } },
   computed: { displayTasks() { return Array.isArray(this.items) ? this.items : [] }, taskCount() { return this.displayTasks.length } },
   watch: { visible(v) { if (v && this.conversationId) { this.loadTasks(this.conversationId) } }, conversationId(id) { if (this.visible && id) { this.loadTasks(id) } } },
   methods: {
     setCardRef(i, el) { this.cardEls[i] = el; this.cardWidths[i] = el ? el.offsetWidth : 0 },
+    run(i) { const t = this.displayTasks[i]; if (!t) return; this.$emit('run-task', t) },
     del(i) { const t = this.displayTasks[i]; if (!t) return; const url = t.type === 'history' ? `${this.apiBaseUrl}/tasks/history/${encodeURIComponent(t.id)}` : `${this.apiBaseUrl}/tasks/${encodeURIComponent(t.id)}`; fetch(url, { method: 'DELETE' }).then(r => { if (r.ok) this.loadTasks(this.conversationId) }) },
     statusIcon(s) { const v = (s || '').toLowerCase(); if (v === 'done' || v === 'success' || v === 'completed') return 'done'; if (v === 'fail' || v === 'error') return 'fail'; return 'loading' },
     statusText(s) { const v = (s || '').toLowerCase(); if (v === 'done' || v === 'success' || v === 'completed') return '任务完成'; if (v === 'fail' || v === 'error') return '任务失败'; return '任务加载' },
@@ -55,6 +61,7 @@ export default {
 .task-count { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; font-size: 12px; color: #4A90E2; background: rgba(74, 144, 226, 0.12); }
 .task-card { border: 1px solid rgba(229, 229, 229, 0.3); border-radius: 12px; padding: 10px; margin: 10px 12px; background: rgba(255, 255, 255, 0.95); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); width: 220px; max-width: 100%; }
 .task-card-row { display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 10px; }
+.task-card-actions { display: flex; gap: 4px; }
 .status-icon svg { display: block; }
 .status-icon svg path { fill: currentColor; }
 .status-icon.is-success { color: #22c55e; }

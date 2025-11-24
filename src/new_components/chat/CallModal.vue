@@ -4,7 +4,7 @@
       <div class="avatar-section">
         <div class="avatar-container">
           <div class="avatar-placeholder">
-            <img src="./logo4.svg" alt="智能体Logo" />
+            <img src="/src/components/logo4.svg" alt="智能体Logo" />
           </div>
           <div class="call-status-indicator" :class="callStatus">
             <div class="pulse-ring"></div>
