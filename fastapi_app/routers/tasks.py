@@ -17,9 +17,6 @@ from fastapi_app.schemas import (
     WorkSessionCreate,
     WorkSessionUpdate,
     WorkSessionResponse,
-    WorkTaskItemCreate,
-    WorkTaskItemResponse,
-    WorkTaskItemUpdate,
     TaskSubmitRequest,
     TaskRunRequest,
     WorkSubTaskResponse,
@@ -245,63 +242,6 @@ async def delete_task(task_id: int, db: Session = Depends(get_db)):
         logging.error(f"删除任务失败: {e}")
         raise HTTPException(status_code=500, detail="删除任务失败")
 
-
-# --- 任务项接口 ---
-
-@router.get("/tasks/{session_id}/items", response_model=List[WorkTaskItemResponse])
-async def list_task_items(session_id: str, db: Session = Depends(get_db)):
-    """获取任务项列表（弃用，请使用 /tasks/{session_id}/subtasks）"""
-    try:
-        q = db.query(WorkTask).filter(WorkTask.session_id == session_id).order_by(WorkTask.created_at)
-        return q.all()
-    except Exception as e:
-        logging.error(f"获取任务项列表失败: {e}")
-        raise HTTPException(status_code=500, detail="获取任务项列表失败")
-
-
-@router.post("/tasks/{session_id}/items", response_model=WorkTaskItemResponse)
-async def create_task_item(session_id: str, payload: WorkTaskItemCreate, db: Session = Depends(get_db)):
-    """创建任务项（弃用）"""
-    try:
-        item = WorkTask(
-            session_id=session_id,
-            task_name=payload.task_name,
-            status=(payload.status or "waiting"),
-            result=payload.result,
-        )
-        db.add(item)
-        db.commit()
-        db.refresh(item)
-        return item
-    except Exception as e:
-        db.rollback()
-        logging.error(f"创建任务项失败: {e}")
-        raise HTTPException(status_code=500, detail="创建任务项失败")
-
-
-@router.put("/tasks/items/{item_id}", response_model=WorkTaskItemResponse)
-async def update_task_item(item_id: int, payload: WorkTaskItemUpdate, db: Session = Depends(get_db)):
-    """更新任务项（弃用）"""
-    try:
-        item = db.query(WorkTask).filter(WorkTask.id == item_id).first()
-        if not item:
-            raise HTTPException(status_code=404, detail="任务项不存在")
-        
-        if payload.status:
-            item.status = payload.status
-        if payload.result is not None:
-            item.result = payload.result
-            
-        db.add(item)
-        db.commit()
-        db.refresh(item)
-        return item
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        logging.error(f"更新任务项失败: {e}")
-        raise HTTPException(status_code=500, detail="更新任务项失败")
 
 
 # --- 任务执行与进度 ---
