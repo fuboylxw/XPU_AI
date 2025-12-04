@@ -810,7 +810,7 @@ class ChatbotAgent:
                     sub_task_name = str(t.get("query") or t.get("title") or "子任务")
                     sub_task = WorkSubTask(
                         session_id=conversation_id,
-                        task_id=main_task.id,
+                        task_id=main_task.task_id,
                         sub_task_name=sub_task_name,
                         order=i,
                         status="waiting",
@@ -819,7 +819,7 @@ class ChatbotAgent:
                     db.add(sub_task)
                     db.flush()
                     persisted_tasks.append({
-                        "id": sub_task.id,
+                        "id": sub_task.task_sub_id,
                         "conversation_id": conversation_id,
                         "title": sub_task_name,
                         "query": str(t.get("query") or sub_task_name),
