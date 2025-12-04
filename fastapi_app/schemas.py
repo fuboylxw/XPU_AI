@@ -40,7 +40,7 @@ class WorkSubTaskUpdate(BaseModel):
 
 
 class WorkSubTaskResponse(BaseModel):
-    id: int
+    task_sub_id: int
     session_id: str
     task_id: int
     sub_task_name: Optional[str] = None
@@ -286,7 +286,7 @@ class WorkTaskItemUpdate(BaseModel):
 
 
 class WorkTaskItemResponse(BaseModel):
-    id: int
+    task_id: int
     session_id: str
     task_name: Optional[str]
     status: Optional[str]
@@ -303,7 +303,7 @@ class TaskRunRequest(BaseModel):
     user_id: str = Field(..., description="用户ID")
 
 class TaskSubmitRequest(BaseModel):
-    session_id: str
+    session_id: Optional[str] = None
     question: str
     user_id: str = "guest"
     user_role: str = "guest"

@@ -21,6 +21,7 @@ except Exception as e:
     logging.warning(f"语音路由不可用: {e}")
     VOICE_ROUTER_AVAILABLE = False
 from fastapi_app.database import engine, Base
+from sqlalchemy import text
 
 # 导入全局初始化器
 GLOBAL_INITIALIZER_AVAILABLE = False
@@ -51,8 +52,7 @@ except Exception as e:
     logging.warning(f"自动标题生成服务不可用: {e}")
     AUTO_TITLE_SERVICE_AVAILABLE = False
 
-# 创建数据库表
-Base.metadata.create_all(bind=engine)
+# 创建数据库表与迁移在启动时加锁执行，避免并发 DDL 冲突
 
 # 创建FastAPI应用实例
 app = FastAPI(
@@ -87,6 +87,21 @@ app.include_router(tasks.router, prefix="/api", tags=["tasks"])
 async def startup_event():
     """应用启动时的预加载事件"""
     print("🚀 正在启动ChatBot系统...")
+    try:
+        with engine.connect() as conn:
+            lock = conn.execute(text("SELECT GET_LOCK(:name, :timeout)"), {"name": "chatbot_schema_migration", "timeout": 0}).scalar()
+            if lock == 1:
+                try:
+                    Base.metadata.create_all(bind=engine)
+                    # 执行一次数据库迁移
+                    try:
+                        tasks._ensure_db_constraints(conn)
+                    except Exception as e:
+                        logging.warning(f"数据库迁移失败: {e}")
+                finally:
+                    conn.execute(text("SELECT RELEASE_LOCK(:name)"), {"name": "chatbot_schema_migration"})
+    except Exception as e:
+        logging.warning(f"启动时数据库初始化失败: {e}")
     
     if GLOBAL_INITIALIZER_AVAILABLE:
         try:
@@ -124,6 +139,13 @@ async def startup_event():
     except Exception as e:
         logging.error(f"启动自动标题生成服务失败: {e}")
         print(f"❌ 启动自动标题生成服务失败: {e}")
+
+    try:
+        from fastapi_app.routers.tasks import run_db_migration_once
+        run_db_migration_once()
+        print("🗄️ 数据库约束检查与迁移已执行")
+    except Exception as e:
+        logging.warning(f"数据库迁移执行失败: {e}")
 
     print("🌟 ChatBot API服务已启动")
 

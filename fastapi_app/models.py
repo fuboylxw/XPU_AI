@@ -115,7 +115,7 @@ class WorkSession(Base):
 class WorkTask(Base):
     __tablename__ = "work_tasks"
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    task_id = Column(Integer, primary_key=True, autoincrement=True)
     session_id = Column(String(50), ForeignKey("work_sessions.session_id"), index=True)
     task_name = Column(String(255), nullable=True)
     status = Column(String(32), nullable=True)
@@ -127,9 +127,9 @@ class WorkTask(Base):
 class WorkSubTask(Base):
     __tablename__ = "work_sub_tasks"
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    task_sub_id = Column(Integer, primary_key=True, autoincrement=True)
     session_id = Column(String(50), index=True)
-    task_id = Column(Integer, ForeignKey("work_tasks.id"), index=True)
+    task_id = Column(Integer, ForeignKey("work_tasks.task_id"), index=True)
     sub_task_name = Column(String(255), nullable=True)
     order = Column(Integer)
     status = Column(String(32), nullable=True)
