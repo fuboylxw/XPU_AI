@@ -327,7 +327,7 @@ async def stream_task_progress(session_id: str, subtask_id: Optional[int] = Quer
 async def execute_task_submit(
     session_id: str,
     background_tasks: BackgroundTasks,
-    payload: dict = Body(...),
+    payload: TaskSubmitRequest,
     db: Session = Depends(get_db),
 ):
     """接受用户任务（问题与会话ID），后台调用 ChatbotAgent.answer_question_tools 执行"""
@@ -345,8 +345,8 @@ async def execute_task_submit(
             db.refresh(session_obj)
 
         # 启动后台任务
-        question = str(payload.get("question") or "").strip()
-        user_id = str(payload.get("user_id") or "guest")
+        question = str(payload.question or "").strip()
+        user_id = str(payload.user_id or "guest")
         background_tasks.add_task(_run_chat_agent_task, session_id, question, user_id)
 
         return Response(status_code=204)
