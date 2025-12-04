@@ -3,7 +3,7 @@
 
 import logging
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Depends, Query, Response, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, Query, Response, BackgroundTasks, Body
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 import json
@@ -20,50 +20,57 @@ from fastapi_app.schemas import (
     TaskSubmitRequest,
     WorkSubTaskResponse,
     WorkSubTaskUpdate,
+    WorkTaskItemResponse,
 )
 from src.Chatbot.agents.task_execution_agent import TaskExecutionAgent
 from dataclasses import asdict
 
-try:
-    Base.metadata.create_all(bind=engine)
-except Exception as e:
-    logging.warning(f"创建工作任务相关表失败: {e}")
-
-def _ensure_db_constraints():
+def _ensure_db_constraints(conn):
+    def exec_safe(sql: str):
+        try:
+            conn.execute(text(sql))
+        except Exception:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
     try:
-        with engine.connect() as conn:
-            try:
-                conn.execute(text("ALTER TABLE work_task RENAME TO work_sessions"))
-            except Exception:
-                pass
-            try:
-                conn.execute(text("ALTER TABLE work_task_history RENAME TO work_tasks"))
-            except Exception:
-                pass
-            try:
-                conn.execute(text("ALTER TABLE work_sessions CHANGE conversation_id session_id VARCHAR(50) NOT NULL"))
-            except Exception:
-                pass
-            try:
-                conn.execute(text("ALTER TABLE work_sessions ADD UNIQUE INDEX uq_work_sessions_session_id (session_id)"))
-            except Exception:
-                pass
-            try:
-                conn.execute(text("ALTER TABLE work_tasks DROP COLUMN description"))
-            except Exception:
-                pass
-            try:
-                conn.execute(text("ALTER TABLE work_tasks ADD CONSTRAINT fk_work_tasks_session FOREIGN KEY (session_id) REFERENCES work_sessions(session_id)"))
-            except Exception:
-                pass
-            try:
-                conn.execute(text("ALTER TABLE work_sub_tasks ADD COLUMN sub_task_name VARCHAR(255)"))
-            except Exception:
-                pass
+        exec_safe("ALTER TABLE work_task RENAME TO work_sessions")
+        exec_safe("ALTER TABLE work_task_history RENAME TO work_tasks")
+        exec_safe("ALTER TABLE work_sessions CHANGE conversation_id session_id VARCHAR(50) NOT NULL")
+        exec_safe("ALTER TABLE work_sessions ADD UNIQUE INDEX uq_work_sessions_session_id (session_id)")
+        exec_safe("ALTER TABLE work_tasks DROP COLUMN description")
+        exec_safe("ALTER TABLE work_tasks ADD CONSTRAINT fk_work_tasks_session FOREIGN KEY (session_id) REFERENCES work_sessions(session_id)")
+        exec_safe("ALTER TABLE work_sub_tasks ADD COLUMN sub_task_name VARCHAR(255)")
+        exec_safe("CREATE TABLE IF NOT EXISTS work_tasks (\n  task_id INT AUTO_INCREMENT PRIMARY KEY,\n  session_id VARCHAR(50),\n  task_name VARCHAR(255),\n  status VARCHAR(32),\n  result TEXT,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  INDEX idx_work_tasks_session_id(session_id)\n)")
+        exec_safe("CREATE TABLE IF NOT EXISTS work_sub_tasks (\n  task_sub_id INT AUTO_INCREMENT PRIMARY KEY,\n  session_id VARCHAR(50),\n  task_id INT,\n  sub_task_name VARCHAR(255),\n  `order` INT,\n  status VARCHAR(32),\n  result TEXT,\n  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,\n  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  INDEX idx_work_sub_tasks_session_id(session_id)\n)")
+        exec_safe("ALTER TABLE work_sub_tasks DROP FOREIGN KEY fk_work_sub_tasks_task")
+        exec_safe("ALTER TABLE work_tasks ADD COLUMN task_id INT")
+        exec_safe("UPDATE work_tasks SET task_id = id WHERE task_id IS NULL")
+        exec_safe("ALTER TABLE work_tasks DROP PRIMARY KEY")
+        exec_safe("ALTER TABLE work_tasks MODIFY COLUMN id INT")
+        exec_safe("ALTER TABLE work_tasks MODIFY COLUMN task_id INT NOT NULL")
+        exec_safe("ALTER TABLE work_tasks ADD PRIMARY KEY (task_id)")
+        exec_safe("ALTER TABLE work_tasks MODIFY COLUMN task_id INT NOT NULL AUTO_INCREMENT")
+        exec_safe("ALTER TABLE work_sub_tasks CHANGE COLUMN tasks_sub_id task_id INT")
+        exec_safe("ALTER TABLE work_sub_tasks ADD CONSTRAINT fk_work_sub_tasks_task_id FOREIGN KEY (task_id) REFERENCES work_tasks(task_id)")
+        exec_safe("ALTER TABLE work_sub_tasks CHANGE COLUMN id task_sub_id INT AUTO_INCREMENT")
     except Exception as e:
         logging.warning(f"约束检查失败: {e}")
 
-_ensure_db_constraints()
+def run_db_migration_once():
+    try:
+        with engine.connect() as conn:
+            lock = conn.execute(text("SELECT GET_LOCK(:name, :timeout)"), {"name": "chatbot_schema_migration", "timeout": 0}).scalar()
+            if lock == 1:
+                try:
+                    _ensure_db_constraints(conn)
+                finally:
+                    conn.execute(text("SELECT RELEASE_LOCK(:name)"), {"name": "chatbot_schema_migration"})
+                return True
+    except Exception as e:
+        logging.warning(f"数据库迁移执行失败: {e}")
+    return False
 
 router = APIRouter()
 
@@ -152,7 +159,7 @@ async def create_task(payload: WorkSessionCreate, db: Session = Depends(get_db))
 async def update_subtask(subtask_id: int, payload: WorkSubTaskUpdate, db: Session = Depends(get_db)):
     """更新子任务"""
     try:
-        subtask = db.query(WorkSubTask).filter(WorkSubTask.id == subtask_id).first()
+        subtask = db.query(WorkSubTask).filter(WorkSubTask.task_sub_id == subtask_id).first()
         if not subtask:
             raise HTTPException(status_code=404, detail="子任务不存在")
         
@@ -319,8 +326,8 @@ async def stream_task_progress(session_id: str, subtask_id: Optional[int] = Quer
 @router.post("/tasks/{session_id}/execute")
 async def execute_task_submit(
     session_id: str,
-    payload: TaskSubmitRequest,
     background_tasks: BackgroundTasks,
+    payload: dict = Body(...),
     db: Session = Depends(get_db),
 ):
     """接受用户任务（问题与会话ID），后台调用 ChatbotAgent.answer_question_tools 执行"""
@@ -338,7 +345,9 @@ async def execute_task_submit(
             db.refresh(session_obj)
 
         # 启动后台任务
-        background_tasks.add_task(_run_chat_agent_task, session_id, payload.question, payload.user_id)
+        question = str(payload.get("question") or "").strip()
+        user_id = str(payload.get("user_id") or "guest")
+        background_tasks.add_task(_run_chat_agent_task, session_id, question, user_id)
 
         return Response(status_code=204)
     except HTTPException:
@@ -358,10 +367,21 @@ async def get_subtasks(session_id: str, db: Session = Depends(get_db)):
         logging.error(f"获取子任务失败: {e}")
         raise HTTPException(status_code=500, detail="获取子任务失败")
 
+
+@router.get("/tasks/{session_id}/tasks", response_model=List[WorkTaskItemResponse])
+async def get_session_tasks(session_id: str, db: Session = Depends(get_db)):
+    """获取指定会话的所有任务项 (WorkTask)"""
+    try:
+        tasks = db.query(WorkTask).filter(WorkTask.session_id == session_id).all()
+        return tasks
+    except Exception as e:
+        logging.error(f"获取任务项失败: {e}")
+        raise HTTPException(status_code=500, detail="获取任务项失败")
+
 @router.get("/tasks/subtasks/{subtask_id}/progress")
 async def stream_subtask_progress(subtask_id: int, db: Session = Depends(get_db)):
     """获取特定子任务的流式进度"""
-    subtask = db.query(WorkSubTask).filter(WorkSubTask.id == subtask_id).first()
+    subtask = db.query(WorkSubTask).filter(WorkSubTask.task_sub_id == subtask_id).first()
     if not subtask:
         raise HTTPException(status_code=404, detail="子任务不存在")
     
