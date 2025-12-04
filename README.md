@@ -1,4 +1,4 @@
-# ChatBot XPU 3.0 - FastAPI 智能对话系统
+# ChatBot XPU 4.0 - FastAPI 智能对话系统
 
 一个基于 FastAPI 和 Vue.js 的智能对话系统，支持文本聊天、语音识别、语音合成、知识库查询、数据查询等多种功能。
 
