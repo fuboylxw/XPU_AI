@@ -14,12 +14,6 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-# 导入上传处理器
-import sys
-from pathlib import Path
-project_root = Path(__file__).parent.parent.parent
-sys.path.append(str(project_root))
-
 from src.Chatbot.utils.upload_processor import upload_processor
 from src.Chatbot.utils.memory_storage import memory_storage
 

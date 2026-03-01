@@ -4,17 +4,12 @@
 数据查询API路由
 """
 
-import sys
-import os
 from typing import Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-# 添加项目根目录到Python路径
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'src'))
-
-from Chatbot.agents.data_query_agent import DataQueryAgent, UserRole
+from src.Chatbot.agents.data_query_agent import DataQueryAgent, UserRole
 from fastapi_app.auth import get_current_active_user
 from fastapi_app.models import User
 from fastapi_app.database import get_db

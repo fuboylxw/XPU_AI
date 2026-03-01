@@ -9,29 +9,9 @@ from typing import Dict, Any
 from fastapi_app.database import get_db
 from fastapi_app.models import AppConfig
 from fastapi_app.schemas import AppConfigFullResponse, SystemStatusResponse
+from src.Chatbot.core.providers import get_chatbot_agent
 
 router = APIRouter()
-
-# 延迟导入ChatbotAgent，避免循环导入问题
-chatbot_agent = None
-
-def get_chatbot_agent():
-    """获取ChatbotAgent实例，延迟初始化"""
-    global chatbot_agent
-    if chatbot_agent is None:
-        try:
-            print("🔍 开始初始化ChatbotAgent...")
-            from src.Chatbot.agents.chat_agent import ChatbotAgent
-            print("✅ ChatbotAgent导入成功")
-            chatbot_agent = ChatbotAgent()
-            print("✅ ChatbotAgent初始化成功")
-        except Exception as e:
-            print(f"❌ 初始化ChatbotAgent失败: {str(e)}")
-            logging.error(f"初始化ChatbotAgent失败: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            chatbot_agent = None
-    return chatbot_agent
 
 
 @router.get("/config/", response_model=Dict[str, Any])

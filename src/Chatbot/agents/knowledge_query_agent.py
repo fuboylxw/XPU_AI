@@ -17,9 +17,6 @@ os.environ['HF_HOME'] = MODELS_CACHE_DIR
 os.environ['TRANSFORMERS_CACHE'] = MODELS_CACHE_DIR
 os.environ['SENTENCE_TRANSFORMERS_HOME'] = MODELS_CACHE_DIR
 
-import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../"))
-
 from config.settings import settings
 from src.Chatbot.tools.dense_retrieval import DenseRetrievalEngine
 # 稀疏检索改为延迟导入，避免缺少 asyncpg 时模块加载失败

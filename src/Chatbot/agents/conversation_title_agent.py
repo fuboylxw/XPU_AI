@@ -3,8 +3,6 @@
 自动监听数据库中历史对话的更新，并在一定时间内没有新会话时，调用大模型总结所有对话并更新该对话的标题
 """
 
-import os
-import sys
 import time
 import threading
 import asyncio
@@ -14,16 +12,6 @@ from langchain_community.chat_models import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-
-# 添加项目根路径与src路径
-current_file_dir = os.path.dirname(os.path.abspath(__file__))
-chatbot_dir = os.path.dirname(current_file_dir)              # .../src/Chatbot
-src_dir = os.path.dirname(chatbot_dir)                       # .../src
-project_root = os.path.dirname(src_dir)                      # project root
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-if src_dir not in sys.path:
-    sys.path.insert(0, src_dir)
 
 from config.settings import settings
 from src.Chatbot.utils.logger import setup_logger

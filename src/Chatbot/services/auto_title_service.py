@@ -3,16 +3,11 @@
 集成数据库监听、定时任务和标题生成功能，提供完整的自动标题生成解决方案
 """
 
-import os
-import sys
 import time
 import threading
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
-
-# 添加项目路径
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src.Chatbot.utils.logger import setup_logger
 from src.Chatbot.agents.conversation_title_agent import ConversationTitleAgent

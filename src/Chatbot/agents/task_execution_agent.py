@@ -78,9 +78,9 @@ class TaskExecutionAgent:
         db = SessionLocal()
         try:
             if is_subtask:
-                obj = db.query(WorkSubTask).filter(WorkSubTask.id == task_id).first()
+                obj = db.query(WorkSubTask).filter(WorkSubTask.task_sub_id == task_id).first()
             else:
-                obj = db.query(WorkTask).filter(WorkTask.id == task_id).first()
+                obj = db.query(WorkTask).filter(WorkTask.task_id == task_id).first()
             
             if obj:
                 obj.status = status
@@ -95,13 +95,20 @@ class TaskExecutionAgent:
 
     async def _emit_progress(self, task: TaskItem, progress_type: str, status: str, data: Dict[str, Any]) -> None:
         """发送进度更新"""
+        payload = dict(data or {})
+        payload.setdefault("schema_version", "react.v1")
+        payload.setdefault("react_event", progress_type)
+        payload.setdefault("conversation_id", task.conversation_id)
+        payload.setdefault("task_id", task.id)
+        payload.setdefault("task_title", task.title)
+
         progress = TaskProgress(
             task_id=task.id,
             conversation_id=task.conversation_id,
             title=task.title,
             status=status,
             progress_type=progress_type,
-            data=data,
+            data=payload,
             timestamp=datetime.now().isoformat()
         )
         
@@ -215,132 +222,151 @@ class TaskExecutionAgent:
             await asyncio.sleep(0.001)
 
     async def _run_with_progress(self, task: TaskItem) -> Dict[str, Any]:
-        """执行任务并发送进度更新"""
-        state = {"tools": []}
+        """执行任务并发送进度更新（基于统一 ReAct 接口）"""
+        state = {"tools": [], "react_steps": []}
         intent = task.intent_analysis or {}
-        max_attempts = 6
-        history = []
+        max_attempts = max(1, int(getattr(settings, "REACT_MAX_ATTEMPTS", 6)))
+
         thinking_enabled = settings.STREAM_THINKING_ENABLED and not settings.STREAM_DECISION_ONLY
         throttle_ms = max(50, int(settings.STREAM_THINKING_THROTTLE_MS))
         max_buffer = max(50, int(settings.STREAM_THINKING_MAX_BUFFER))
         thinking_buffer = ""
         last_emit_ts = datetime.now().timestamp()
-        
-        for attempt in range(max_attempts):
-            # 发送决策进度
-            await self._emit_progress(
-                task, "thinking", "executing",
-                {"attempt": attempt + 1, "message": "AI正在思考决策..."}
-            )
-            
-            # 执行决策（带流式思考回调，节流与合并）
-            async def _on_thinking_chunk(token: str):
-                if not thinking_enabled:
-                    return
-                nonlocal thinking_buffer, last_emit_ts
-                if not token:
-                    return
-                thinking_buffer += token
-                now_ts = datetime.now().timestamp()
-                elapsed_ms = int((now_ts - last_emit_ts) * 1000)
-                if elapsed_ms >= throttle_ms or len(thinking_buffer) >= max_buffer:
-                    await self._emit_progress(
-                        task, "thinking", "executing",
-                        {"attempt": attempt + 1, "detail": thinking_buffer}
-                    )
-                    thinking_buffer = ""
-                    last_emit_ts = now_ts
+        current_attempt = 1
 
-            decision = await self.orchestrator.run_decide_stream(
-                question=task.query,
-                intent=intent,
-                state=state,
-                tools=self.orchestrator._format_tools(),
-                on_chunk=_on_thinking_chunk,
-            )
-            # 决策生成后，flush残余思考缓冲
-            if thinking_enabled and thinking_buffer:
+        async def _on_thinking_chunk(token: str):
+            if not thinking_enabled or not token:
+                return
+            nonlocal thinking_buffer, last_emit_ts, current_attempt
+            thinking_buffer += token
+            now_ts = datetime.now().timestamp()
+            elapsed_ms = int((now_ts - last_emit_ts) * 1000)
+            if elapsed_ms >= throttle_ms or len(thinking_buffer) >= max_buffer:
                 await self._emit_progress(
-                    task, "thinking", "executing",
-                    {"attempt": attempt + 1, "detail": thinking_buffer}
+                    task,
+                    "thinking",
+                    "executing",
+                    {"attempt": current_attempt, "detail": thinking_buffer},
                 )
                 thinking_buffer = ""
-            
-            # 发送决策结果进度
-            await self._emit_progress(
-                task, "decision", "executing",
-                {
-                    "attempt": attempt + 1,
-                    "action": decision.get("action"),
-                    "reasoning": decision.get("reasoning", ""),
-                    "decision": decision
-                }
-            )
-            
-            action = decision.get("action")
-            
-            if action == "final_answer":
-                answer = decision.get("answer") or decision.get("final_answer", "")
-                return {
-                    "type": intent.get("intent_class") or "general_answer",
-                    "result": {"success": True, "answer": answer, "source": "llm"},
-                    "history": history
-                }
-            
-            if action == "tool_call":
-                tool_name = decision.get("next_tool")
-                tool_params = decision.get("tool_params") or {}
-                
-                # 发送工具调用进度
+                last_emit_ts = now_ts
+
+        async def _on_event(event: Dict[str, Any]):
+            nonlocal current_attempt, thinking_buffer
+            event_type = event.get("type")
+            attempt = int(event.get("attempt") or current_attempt)
+            current_attempt = attempt
+
+            if event_type == "attempt_start":
                 await self._emit_progress(
-                    task, "tool_call", "executing",
+                    task,
+                    "thinking",
+                    "executing",
+                    {"attempt": attempt, "message": "AI正在思考决策..."},
+                )
+                return
+
+            if event_type == "decision":
+                decision = event.get("decision") or {}
+                await self._emit_progress(
+                    task,
+                    "decision",
+                    "executing",
                     {
-                        "attempt": attempt + 1,
+                        "attempt": attempt,
+                        "action": decision.get("action"),
+                        "reasoning": decision.get("reasoning", ""),
+                        "decision": decision,
+                    },
+                )
+                return
+
+            if event_type == "tool_call":
+                tool_name = event.get("tool")
+                tool_params = event.get("params") or {}
+                await self._emit_progress(
+                    task,
+                    "tool_call",
+                    "executing",
+                    {
+                        "attempt": attempt,
                         "tool": tool_name,
                         "params": tool_params,
-                        "message": f"正在调用工具: {tool_name}"
-                    }
+                        "message": f"正在调用工具: {tool_name}",
+                    },
                 )
-                
-                # 执行工具调用
-                exec_res = await self.orchestrator.runner.registry.call(tool_name, tool_params)
-                
-                # 发送工具结果进度
-                await self._emit_progress(
-                    task, "tool_result", "executing",
-                    {
-                        "attempt": attempt + 1,
-                        "tool": tool_name,
-                        "result": exec_res,
-                        "message": f"工具 {tool_name} 执行完成"
-                    }
-                )
-                
-                last_exec = {"tool": tool_name, "params": tool_params, "result": exec_res}
-                history.append(last_exec)
-                state['tools'].append({"name": tool_name, "result": exec_res})
-                continue
-        
-        # 达到最大尝试次数
-        if history:
-            return {
-                "type": intent.get("intent_class") or "general_answer",
-                "result": history[-1].get("result") or {"success": False, "error": "Max attempts reached"},
-                "history": history
-            }
-        
-        return {
-            "type": intent.get("intent_class") or "general_answer",
-            "result": {"success": False, "error": "No attempts executed"},
-            "history": history
-        }
+                return
 
-    async def stream_results(self, conversation_id: Optional[str] = None):
+            if event_type == "tool_result":
+                tool_name = event.get("tool")
+                tool_result = event.get("result") or {}
+                await self._emit_progress(
+                    task,
+                    "tool_result",
+                    "executing",
+                    {
+                        "attempt": attempt,
+                        "tool": tool_name,
+                        "result": tool_result,
+                        "message": f"工具 {tool_name} 执行完成",
+                    },
+                )
+                return
+
+            if event_type == "error":
+                await self._emit_progress(
+                    task,
+                    "error",
+                    "executing",
+                    {"attempt": attempt, "error": event.get("error")},
+                )
+                return
+
+            if event_type == "final_answer" and thinking_buffer:
+                await self._emit_progress(
+                    task,
+                    "thinking",
+                    "executing",
+                    {"attempt": attempt, "detail": thinking_buffer},
+                )
+                thinking_buffer = ""
+
+        result = await self.orchestrator.run_react(
+            question=task.query,
+            max_attempts=max_attempts,
+            intent=intent,
+            state=state,
+            on_event=_on_event,
+            on_thinking_chunk=_on_thinking_chunk if thinking_enabled else None,
+            use_stream_decide=thinking_enabled,
+            include_trace=bool(getattr(settings, "REACT_INCLUDE_TRACE", False)),
+            allow_fallback_synthesis=bool(getattr(settings, "REACT_ALLOW_FALLBACK_SYNTHESIS", True)),
+            max_consecutive_invalid=max(
+                1, int(getattr(settings, "REACT_MAX_CONSECUTIVE_INVALID", 2))
+            ),
+        )
+
+        # flush 残余思考 token
+        if thinking_enabled and thinking_buffer:
+            await self._emit_progress(
+                task,
+                "thinking",
+                "executing",
+                {"attempt": current_attempt, "detail": thinking_buffer},
+            )
+
+        return result
+
+    async def stream_results(self, conversation_id: Optional[str] = None, limit: Optional[int] = None):
         """流式返回任务最终结果"""
+        delivered = 0
         while True:
             data = await self.result_queue.get()
             if not conversation_id or data.get("conversation_id") == conversation_id:
                 yield data
+                delivered += 1
+                if limit is not None and delivered >= limit:
+                    break
             await asyncio.sleep(0.001)
 
     async def stream_progress(self, conversation_id: Optional[str] = None, task_id: Optional[int] = None) -> AsyncGenerator[Dict[str, Any], None]:

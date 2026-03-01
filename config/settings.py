@@ -126,5 +126,14 @@ class Settings:
         self.STREAM_THINKING_THROTTLE_MS = int(os.getenv("STREAM_THINKING_THROTTLE_MS", "120"))
         self.STREAM_THINKING_MAX_BUFFER = int(os.getenv("STREAM_THINKING_MAX_BUFFER", "400"))
 
+        # ReAct 执行控制
+        self.REACT_MAX_ATTEMPTS = int(os.getenv("REACT_MAX_ATTEMPTS", "6"))
+        self.REACT_INCLUDE_TRACE = os.getenv("REACT_INCLUDE_TRACE", "false").lower() == "true"
+        self.REACT_ALLOW_FALLBACK_SYNTHESIS = os.getenv("REACT_ALLOW_FALLBACK_SYNTHESIS", "true").lower() == "true"
+        self.REACT_MAX_CONSECUTIVE_INVALID = int(os.getenv("REACT_MAX_CONSECUTIVE_INVALID", "2"))
+        self.REACT_PROGRESS_INCLUDE_THINKING_DEFAULT = (
+            os.getenv("REACT_PROGRESS_INCLUDE_THINKING_DEFAULT", "false").lower() == "true"
+        )
+
 # 创建全局设置实例
 settings = Settings()

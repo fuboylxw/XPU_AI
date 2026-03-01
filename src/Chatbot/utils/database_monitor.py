@@ -3,17 +3,12 @@
 监听数据库中历史对话表的更新，并触发相应的处理逻辑
 """
 
-import os
-import sys
 import time
 import threading
 import pymysql
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, Callable, List
 from dataclasses import dataclass
-
-# 添加项目路径
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src.Chatbot.utils.logger import setup_logger
 

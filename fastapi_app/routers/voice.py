@@ -5,7 +5,6 @@ import os
 import logging
 import tempfile
 import uuid
-import sys
 import io
 import time
 from pathlib import Path
@@ -17,14 +16,12 @@ from pydub import AudioSegment
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 
-# 添加项目根目录到Python路径
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
-
 # 导入智能体
-from src.Chatbot.agents.voice_recognition_agent import VoiceRecognitionAgent
-from src.Chatbot.agents.chat_agent import ChatbotAgent
-from src.Chatbot.agents.text_to_speech_agent import TextToSpeechAgent
+from src.Chatbot.core.providers import (
+    get_chatbot_agent,
+    get_tts_agent,
+    get_voice_recognition_agent,
+)
 
 # 导入数据库相关
 from fastapi_app.database import get_db
@@ -91,21 +88,36 @@ def cleanup_expired_sessions():
         del continuous_sessions[session_id]
         logger.info(f"清理过期会话: {session_id}")
 
-# 初始化智能体实例
-voice_recognition_agent = VoiceRecognitionAgent()
-chat_agent = ChatbotAgent()
-
 # 初始化TTS代理（优先使用本地ChatTTS，无API强制）
-try:
-    from src.Chatbot.agents.text_to_speech_agent import TextToSpeechAgent
-    tts_agent = TextToSpeechAgent()
-    if getattr(tts_agent, "chattts", None):
+_initial_tts_agent = get_tts_agent()
+if _initial_tts_agent:
+    if getattr(_initial_tts_agent, "chattts", None):
         logger.info("TTS已启用本地ChatTTS")
     else:
         logger.info("TTS使用本地回退合成（无API密钥）")
-except Exception as e:
-    logger.error(f"TTS代理初始化失败: {e}")
-    tts_agent = None
+else:
+    logger.error("TTS代理初始化失败")
+
+
+def _require_voice_recognition_agent():
+    agent = get_voice_recognition_agent()
+    if agent is None:
+        raise HTTPException(status_code=503, detail="语音识别服务暂不可用")
+    return agent
+
+
+def _require_chat_agent():
+    agent = get_chatbot_agent()
+    if agent is None:
+        raise HTTPException(status_code=503, detail="对话服务暂不可用")
+    return agent
+
+
+def _require_tts_agent():
+    agent = get_tts_agent()
+    if agent is None:
+        raise HTTPException(status_code=503, detail="语音合成服务暂不可用")
+    return agent
 
 
 # 电话会话管理函数
@@ -317,7 +329,7 @@ async def recognize_speech(audio_file: UploadFile = File(...)) -> Dict[str, Any]
                     f.write(audio_data)
                 
                 # 第一步：优先使用Whisper本地模型识别
-                whisper_result = voice_recognition_agent.recognize_speech_whisper(temp_file_path)
+                whisper_result = _require_voice_recognition_agent().recognize_speech_whisper(temp_file_path)
                 if whisper_result and whisper_result.get("success"):
                     logger.info(f"Whisper语音识别成功: {whisper_result['text']}")
                     return JSONResponse(
@@ -366,7 +378,7 @@ async def recognize_speech(audio_file: UploadFile = File(...)) -> Dict[str, Any]
                 
                 # 转换WAV为PCM格式（百度API需要）
                 pcm_filename = temp_file_path.replace('.wav', '.pcm')
-                convert_result = voice_recognition_agent.convert_to_pcm(temp_file_path, pcm_filename)
+                convert_result = _require_voice_recognition_agent().convert_to_pcm(temp_file_path, pcm_filename)
                 
                 if not convert_result['success']:
                     logger.error(f"音频格式转换失败: {convert_result['error']}")
@@ -382,7 +394,7 @@ async def recognize_speech(audio_file: UploadFile = File(...)) -> Dict[str, Any]
                     )
                 
                 # 使用百度语音识别
-                recognition_result = voice_recognition_agent.recognize_speech(pcm_filename)
+                recognition_result = _require_voice_recognition_agent().recognize_speech(pcm_filename)
                 
                 # 清理PCM临时文件
                 try:
@@ -504,7 +516,7 @@ async def voice_phone_call_async(audio_file: UploadFile = File(...)) -> Streamin
                 if len(audio_data) == 0:
                     recognized_text = pending_phone_questions.get("async", "")
                 else:
-                    whisper_result = voice_recognition_agent.recognize_speech_whisper(temp_file_path)
+                    whisper_result = _require_voice_recognition_agent().recognize_speech_whisper(temp_file_path)
                     if whisper_result and whisper_result.get("success"):
                         recognized_text = whisper_result["text"].strip()
                         pending_phone_questions["async"] = recognized_text
@@ -513,7 +525,7 @@ async def voice_phone_call_async(audio_file: UploadFile = File(...)) -> Streamin
                         recognized_text = "抱歉，我没有听清楚您说的话。"
                 
                 # 调用聊天智能体
-                chat_response = await chat_agent.answer_question(
+                chat_response = await _require_chat_agent().answer_question(
                     question=recognized_text,
                     user_id="phone_user_async",
                     user_role="guest",
@@ -530,7 +542,7 @@ async def voice_phone_call_async(audio_file: UploadFile = File(...)) -> Streamin
                     try:
                         logger.info("开始异步生成语音流")
                         
-                        async for audio_chunk in tts_agent.synthesize_speech_stream_async(
+                        async for audio_chunk in _require_tts_agent().synthesize_speech_stream_async(
                             text=response_text,
                             chunk_size=1024
                         ):
@@ -600,7 +612,7 @@ async def get_phone_call_status() -> Dict[str, Any]:
                 "fast_response_supported": True
             },
             "text_to_speech": {
-                "available": tts_agent is not None,
+                "available": get_tts_agent() is not None,
                 "supported_formats": ["mp3-16k", "wav-16k"],
                 "stream_supported": True,
                 "async_stream_supported": True
@@ -766,7 +778,7 @@ async def continuous_call_handler(
                         
                         # 调用聊天智能体
                         logger.info(f"调用聊天智能体处理持续语音: {recognized_text}")
-                        chat_response = await chat_agent.answer_question(
+                        chat_response = await _require_chat_agent().answer_question(
                             question=full_question,
                             user_id=continuous_session.user_id,
                             user_role="guest",
@@ -801,7 +813,7 @@ async def continuous_call_handler(
                             try:
                                 logger.info("开始生成持续语音流")
                                 
-                                for audio_chunk in tts_agent.synthesize_speech_stream(
+                                for audio_chunk in _require_tts_agent().synthesize_speech_stream(
                                     text=response_text,
                                     chunk_size=1024,
                                     format='mp3-16k',

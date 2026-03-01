@@ -10,12 +10,6 @@ from datetime import datetime
 # 设置日志
 logger = logging.getLogger(__name__)
 
-import sys
-from pathlib import Path
-# 将项目根目录添加到 sys.path
-project_root = Path(__file__).resolve().parents[3]
-sys.path.append(str(project_root))
-
 # 导入所需的组件类
 try:
     from langchain_community.chat_models import ChatOpenAI

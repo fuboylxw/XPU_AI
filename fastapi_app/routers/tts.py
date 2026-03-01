@@ -6,7 +6,6 @@ TTS (Text-to-Speech) API路由
 """
 
 import os
-import sys
 import asyncio
 from typing import Optional, Dict, Any
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -14,28 +13,13 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 import logging
 
-# 添加项目根目录到Python路径
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, project_root)
-
-from src.Chatbot.agents.text_to_speech_agent import TextToSpeechAgent
+from src.Chatbot.core.providers import get_tts_agent
 
 # 配置日志
 logger = logging.getLogger(__name__)
 
 # 创建路由器
 router = APIRouter(prefix="/tts", tags=["语音合成"])
-
-# 全局TTS智能体实例
-tts_agent = None
-
-def get_tts_agent():
-    """获取TTS智能体实例"""
-    global tts_agent
-    if tts_agent is None:
-        tts_agent = TextToSpeechAgent()
-    return tts_agent
-
 
 class TTSRequest(BaseModel):
     """TTS请求模型"""
@@ -73,11 +57,18 @@ class TTSSegmentRequest(BaseModel):
     enable_subtitle: Optional[int] = Field(0, description="是否启用字幕 (0或1)", ge=0, le=1)
 
 
+def _require_tts_agent():
+    agent = get_tts_agent()
+    if agent is None:
+        raise HTTPException(status_code=503, detail="TTS服务暂不可用")
+    return agent
+
+
 @router.get("/status/")
 async def get_tts_status():
     """获取TTS服务状态"""
     try:
-        agent = get_tts_agent()
+        agent = _require_tts_agent()
         formats = agent.get_supported_formats()
         
         return {
@@ -86,6 +77,8 @@ async def get_tts_status():
             "api_configured": bool(agent.api_key),
             "supported_formats": formats
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"获取TTS状态失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"TTS服务状态检查失败: {str(e)}")
@@ -97,7 +90,7 @@ async def synthesize_speech(request: TTSRequest):
     语音合成 - 返回完整音频文件
     """
     try:
-        agent = get_tts_agent()
+        agent = _require_tts_agent()
         
         # 执行语音合成
         result = agent.synthesize_speech(
@@ -137,7 +130,7 @@ async def synthesize_speech_stream(request: TTSStreamRequest):
     流式语音合成 - 返回音频流
     """
     try:
-        agent = get_tts_agent()
+        agent = _require_tts_agent()
         
         def generate_audio_stream():
             """生成音频流"""
@@ -186,7 +179,7 @@ async def synthesize_speech_stream_async(request: TTSStreamRequest):
     异步流式语音合成 - 返回音频流
     """
     try:
-        agent = get_tts_agent()
+        agent = _require_tts_agent()
         
         async def generate_audio_stream_async():
             """异步生成音频流"""
@@ -235,7 +228,7 @@ async def synthesize_speech_segments_stream(request: TTSSegmentRequest):
     分段流式语音合成 - 将长文本分段处理并返回音频流
     """
     try:
-        agent = get_tts_agent()
+        agent = _require_tts_agent()
         
         def generate_segment_audio_stream():
             """生成分段音频流"""
@@ -283,8 +276,10 @@ async def synthesize_speech_segments_stream(request: TTSSegmentRequest):
 async def get_supported_formats():
     """获取支持的音频格式"""
     try:
-        agent = get_tts_agent()
+        agent = _require_tts_agent()
         return agent.get_supported_formats()
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"获取支持格式失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"获取支持格式失败: {str(e)}")

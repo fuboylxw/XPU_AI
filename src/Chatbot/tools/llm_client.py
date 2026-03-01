@@ -35,11 +35,11 @@ class LLMClient:
             temperature: 温度参数
             max_tokens: 最大token数
         """
-        self.api_key = settings.OPENAI_API_KEY
-        self.model = settings.OPENAI_MODEL
-        self.base_url = settings.OPENAI_MODEL_BASE_URL
-        self.temperature = settings.OPENAI_TEMPERATURE
-        self.max_tokens = settings.OPENAI_MAX_TOKENS
+        self.api_key = api_key or settings.OPENAI_API_KEY
+        self.model = model or settings.OPENAI_MODEL
+        self.base_url = base_url or settings.OPENAI_MODEL_BASE_URL
+        self.temperature = temperature if temperature is not None else settings.OPENAI_TEMPERATURE
+        self.max_tokens = max_tokens or settings.OPENAI_MAX_TOKENS
 
         # 初始化LLM
         # self.llm = ChatOpenAI(
